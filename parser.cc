@@ -133,13 +133,12 @@ public:
    ParserChunk *parts[6];
 
    Seq( ParserChunk *p0, ParserChunk *p1 = &empty, ParserChunk *p2 = &empty, ParserChunk *p3 = &empty, ParserChunk *p4 = &empty,ParserChunk *p5 = &empty) {
-
-       p[0] = p0;
-       p[1] = p1;
-       p[2] = p2;
-       p[3] = p3;
-       p[4] = p4;
-       p[5] = p5;
+       parts[0] = p0;
+       parts[1] = p1;
+       parts[2] = p2;
+       parts[3] = p3;
+       parts[4] = p4;
+       parts[5] = p5;
    }
 
    TreeNode * do_parse(std::istream istr, char **update_op) { 
@@ -150,6 +149,7 @@ public:
               res->subexps[i] = parts[i]->do_parse(istr, &res->op);
           }
       }
+   }
 }
 
 class Or : public ParserChunk {
@@ -188,15 +188,17 @@ public:
 // =====================================================
 // 
 
+void
+buildParser() {
+    ParserChunk *statement = new Or( 
+          new Seq( new Symbol("if"), (guardlist), new Symbol("fi"), (opt_assertion)),
+          new Seq( new Symbol("do"), (opt_invariant) , (opt_bound), (guardlist), new Symbol("od") , (opt_assertion)),
+         (assignment)
+      );
 
-Or statement( 
-      new Seq( new Symbol("if"), (&guardlist), new Symbol("fi"), (&opt_assertion)),
-      new Seq( new Symbol("do"), (&opt_invariant) , (&opt_bound), (guardlist), new Symbol("od") , (&opt_assertion)),
-     (&assignment)
-  );
+    ParserChunk *varlist = new Seq( new Symbol("\w+"), new Opt(",", &varlist));
 
-Seq varlist( new Symbol("\w+"), new Opt(",", &varlist));
-
+}
 
 /*  needs fixup
 primary = Or( Seq( Symbol("-"), (primary)),
