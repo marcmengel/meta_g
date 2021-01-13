@@ -1,21 +1,25 @@
+#include <iostream>
+#include <ctype.h>
+#include <string.h>
 
 class TreeNode {
 public:
    char *op;
    TreeNode *subexps[6];
-}
+};
 
 class ParserChunk {
 public:
-   int ptype;
-   virtual TreeNode *do_parse(istream istr, char ***update_op) = 0;
-}
+   ParserChunk() {;}
+   ParserChunk(const ParserChunk &x) {;}
+   virtual TreeNode *do_parse(std::istream istr, char **update_op) = 0;
+};
 
-class Empty : ParserChunk {
+class Empty : public ParserChunk {
 public:
-   Empty() { ; }
-   do_parse(istream istr, char ***update_op) { return (TreeNode *)0;}
-}
+   Empty() {;}
+   TreeNode *do_parse(std::istream istr, char **update_op) { return (TreeNode *)0;}
+};
 
 class Empty empty;
 
@@ -28,11 +32,16 @@ class matcher {
 // \+
 // [^"]*|\\"
 // specific chars
+
     char *start, *cur, *alt;
     bool saw_backslash;
+public:
 
     matcher(char *s) { start = cur = s; saw_backslash = 0; alt = 0; }
-    clock(c) {
+    bool final() { return *cur == 0 || alt && *alt == 0;}
+    int clock(int c) {
+       char *cur_before = cur;
+       int res = 0;
        if (cur[0] == 0) { //end of pattern, does not match :-)
           return 0;
        }
@@ -41,26 +50,13 @@ class matcher {
           // only works for ...a*b not ...a*a type matches
           cur = alt+1;
           alt = 0;
-          return 1;
+          res = 1;
        } if (cur[0] == '\\') {
-           if (cur[1] == 'w' && isalnum(c)) {
-               if(cur[2] != '*' && cur[2] != '+') {
-                  cur += 2;
-               }
-               return 1;
-           }
-           if (cur[1] == 's' && isspace(c)) {
-               if(cur[2] != '*' && cur[2] != '+') {
-                  cur += 2;
-               }
-               return 1;
-           }
-           if (cur[1] == c) {
-              cur += 2;
-              return 1;
-           }
-       }
-       if (cur[0] == '[') {
+           if (cur[1] == 'w' && isalnum(c)) { cur += 2; res = 1; }
+           if (cur[1] == 's' && isspace(c)) { cur += 2; res =  1; }
+           if (cur[1] == c) { cur += 2; res = 1; }
+           return 0;
+       } else if (cur[0] == '[') {
           int matched = 0;
           int negated = 0;
           char *start = cur;
@@ -77,29 +73,35 @@ class matcher {
                 matched = 1;
              }
           }
-          if (*cur == ']')
+          if (*cur == ']') {
              cur++;
           }
-          if (*cur && *cur == '*') {
-             alt = cur+1;
-          }
-          return matched ^ cur;
-       }
-       if (cur[0] == c) {
+          res = matched ^ negated;
+       } else if (cur[0] == c) {
           cur++;
-          return 1;
+          res = 1;
        }
+       if (*cur && *cur == '*' || *cur == '+') {
+          alt = cur+1;
+          cur = cur_before;
+       }
+       return res;
     }
-}
+};
 
-class Symbol : ParserChunk {
+class Symbol : public ParserChunk {
+    // this is a placeholder for a proper one
+    // what we should do is put all the Symbols into a pool
+    // make a flex-style matcher for them and 
+    // rework for that...
 public:
    char *sym_re;
    Symbol(char *re) { sym_re = re; }
 
-   virtual TreeNode * do_parse(istream istr, char ***update_op) { 
+   TreeNode * do_parse(std::istream istr, char **update_op) { 
       static const int MAXTOKEN=64;
       static char buf[MAXTOKEN];
+      TreeNode *res = 0;
       matcher m(sym_re);
       int c = istr.peek();
       int i = 0;
@@ -108,35 +110,40 @@ public:
          istr.get();
          c = istr.peek();
       }
-      if (i > 0) {
+      if (i > 0 && m.final()) {
          buf[i++] = 0;
-         res = new TreeNode;
-         res->op = res->subexps[0] = strdup(buf);
+         res = new TreeNode; 
+         res->op = strdup(buf);
+         res->subexps[0] = (TreeNode*) res->op;
          if (update_op != 0 && *update_op == 0) {
              *update_op = res->op;
          }
       } else {
+         while( i > 1) {
+            i--;
+            istr.unget();
+         }
          return 0;
       }
    }
-}
+};
 
-class Seq : ParserChunk {
+class Seq : public ParserChunk {
 public:
    ParserChunk *parts[6];
 
-   Opt( char *p0, ParserChunk &p1 = empty, ParserChunk &p1 = empty, ParserChunk &p3 = empty, ParserChunk &p4 = empty,ParserChunk &p5 = empty) {
+   Seq( ParserChunk *p0, ParserChunk *p1 = &empty, ParserChunk *p2 = &empty, ParserChunk *p3 = &empty, ParserChunk *p4 = &empty,ParserChunk *p5 = &empty) {
 
-       p[0] = &p0;
-       p[1] = &p1;
-       p[2] = &p2;
-       p[3] = &p3;
-       p[4] = &p4;
-       p[5] = &p5;
+       p[0] = p0;
+       p[1] = p1;
+       p[2] = p2;
+       p[3] = p3;
+       p[4] = p4;
+       p[5] = p5;
    }
 
-   virtual TreeNode * do_parse(istream istr, char ***update_op) { 
-      TreeNode *res = new TreeNode();
+   TreeNode * do_parse(std::istream istr, char **update_op) { 
+   TreeNode *res = new TreeNode();
 
       for( int i = 0 ; i < 6; i++ ) {
           if ( parts[i] != NULL ) {
@@ -145,18 +152,18 @@ public:
       }
 }
 
-class Or : 
-public:
+class Or : public ParserChunk {
    ParserChunk *parts[4];
+public:
 
-   Opt( char *p0, ParserChunk &p1 = empty, ParserChunk &p1 = empty, ParserChunk &p3 = empty) {
+   Or( ParserChunk *p0, ParserChunk *p1 = &empty, ParserChunk *p2 = &empty, ParserChunk *p3 = &empty) {
 
-       p[0] = &p0;
-       p[1] = &p1;
-       p[2] = &p2;
-       p[3] = &p3;
+       p[0] = p0;
+       p[1] = p1;
+       p[2] = p2;
+       p[3] = p3;
    }
-   virtual TreeNode * do_parse(istream istr, char ***update_op) { 
+   TreeNode * do_parse(std::istream istr, char **update_op) { 
   
       for( int i = 0 ; i < 4; i++ ) {
           if ( parts[i] != NULL ) {
@@ -168,50 +175,30 @@ public:
       }
       return 0;
    }
-}
+};
 
 class Opt : Or {
 public:
-   Opt( char *p1, ParserChunk &p2 = empty, ParserChunk &p3 = empty, ParserChunk &p4 = empty) {
+   Opt( char *p1, ParserChunk *p2 = &empty, ParserChunk *p3 = &empty, ParserChunk *p4 = &empty) {
        this.Or( Seq( Symbol(p1), p2, p3, p4), empty);
    }
-}
+};
 
-// ...
-
-type =  Or(
-    Seq(Symbol("array"), Symbol("["), (expression), Symbol("]"), (type))
-    Seq(Symbol("class"), Symbol("["), (expression), Symbol("]"), (type))
- );
-
-block = Opt("begin", stmt_seq, Symbol("end"));
-
-spec_type = Seq(Symbol(":") , (type));
-formal_arg_list = Opt("(", ( formal_list ), Symbol(")"));
-formal_list = Seq((formal), Opt(",", (formal_list)));
-formal = Seq(Symbol("\w+"), (spec_type));
-
-func = Seq(Symbol("function"), Symbol("\w+"),  (formal_arg_list), (spec_type), Opt("pre:", predicate), Opt("post:", predicate) , (block));
+//
+// =====================================================
+// 
 
 
-opt_Assertion = Opt("{", (predicate), Symbol("}"));
+Or statement( 
+      new Seq( new Symbol("if"), (&guardlist), new Symbol("fi"), (&opt_assertion)),
+      new Seq( new Symbol("do"), (&opt_invariant) , (&opt_bound), (guardlist), new Symbol("od") , (&opt_assertion)),
+     (&assignment)
+  );
+
+Seq varlist( new Symbol("\w+"), new Opt(",", &varlist));
 
 
-
-statement = Or(
-               Seq( Symbol("if"), (guardlist), Symbol("fi"), (opt_assertion)),
-               Seq( Symbol("it"), (opt_invariant) , (opt_bound), (guardlist), Symbol("fi") , (opt_assertion)),
-               (assignment)
-            );
-
-varlist = Seq( Symbol("\w+"), Opt(",", varlist));
-
-stmt_seq = Seq( (statement), (optAssertion), Opt(";", (stmt))
-
-assignemnt = Seq( (varlist), Symbol("="), (exprlist))
-
-
-
+/*  needs fixup
 primary = Or( Seq( Symbol("-"), (primary)),
               Seq( Symbol("!"), (primary)),
               Symbol("\d+"),
@@ -253,3 +240,25 @@ predicate = Seq((and_pred),Or(
 
 opt_invariant = Opt("Inv:", (predicate) )
 opt_bound = Opt("Bound:", (expression) )
+
+stmt_seq = Seq( (statement), (optAssertion), Opt(";", (stmt))
+
+assignemnt = Seq( (varlist), Symbol("="), (exprlist))
+
+type =  Or(
+    Seq(Symbol("array"), Symbol("["), (expression), Symbol("]"), (type))
+    Seq(Symbol("class"), Symbol("["), (expression), Symbol("]"), (type))
+ );
+
+block = Opt("begin", stmt_seq, Symbol("end"));
+
+opt_Assertion = Opt("{", (predicate), Symbol("}"));
+
+spec_type = Seq(Symbol(":") , (type));
+formal_arg_list = Opt("(", ( formal_list ), Symbol(")"));
+formal_list = Seq((formal), Opt(",", (formal_list)));
+formal = Seq(Symbol("\w+"), (spec_type));
+
+func = Seq(Symbol("function"), Symbol("\w+"),  (formal_arg_list), (spec_type), Opt("pre:", predicate), Opt("post:", predicate) , (block));
+
+*/
