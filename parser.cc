@@ -200,8 +200,8 @@ buildParser() {
 
 }
 
-/*  needs fixup
-primary = Or( Seq( Symbol("-"), (primary)),
+ParserChunk *
+primary = new Or( new Seq( new Symbol("-"), (primary)),
               Seq( Symbol("!"), (primary)),
               Symbol("\d+"),
               Symbol("0x\x+"),
