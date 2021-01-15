@@ -57,9 +57,29 @@ public:
         compiled = false;
      }
 
-    int add_regexp(const char *re);  // add a regexp, geta token-id
-    int peek(std::istream &s);  // get token-id of upcoming token
+    int add_regexp(const char *re);  // add a regexp, geta token-id {
+        for(int i = 0; i < n_res; i++) {
+            if (0 == strcmp(re_list[i], re)) {
+                return i;
+            }
+        }
+        if (n_res == max_res) {
+            max_res = 2 * max_res;
+            re_list = realloc(re_list, sizeof(char *)*max_res):
+        }
+        re_list[n_res++] = strdup(re);
+        return n_res - 1;
+    }
+
     void syntax_error();        // print error at file:line 
+
+    check() {
+        
+    }
+
+    int peek(std::istream &s){  // get token-id of upcoming token
+       check(); 
+    }
     SymbolExprNode *get(std::istream &s, SymbolExprNode *update);
                                // consume token, put in SymbolExprNode
 };
@@ -77,7 +97,8 @@ public:
 };
 
 class SymbolParserObj : public ParserObj {
-    int _token_id;
+    {
+  int _token_id;
 public:
     SymbolParserObj(Lexer *l, int token_id){ lexer = l; _token_id=token_id;}
     ExprNode *parse(std::istream &str, SymbolExprNode **update ) {
