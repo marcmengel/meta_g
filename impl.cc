@@ -33,158 +33,21 @@ public:
 };
 
 class Lexer {
+    struct { int fromstate; int cc; bool final; int tostate;} graph;
+    static const int MAXLINE=1024;
+    int curtoken;
+    int curlinenum;
+    char curline[MAXLINE];
+    char *curpos;
+    char **re_list;
+    int n_res;
+    int max_res;
     bool compiled;
     void compile_all();        // internal, called by peek/get
 public:
-    int add_regexp(const char *re);  // add a regexp, geta token-id
-    int peek(std::istream &s);  // get token-id of upcoming token
-    void syntax_error();        // print error at file:line 
-    SymbolExprNode *get(std::istream &s, SymbolExprNode *update);
-                               // consume token, put in SymbolExprNode
-};
-
-class ParserObj {
-public:
-    Lexer *lexer;
-    virtual ExprNode *parse(std::istream &str, SymbolExprNode **update );
-};
-
-class EmptyParserObj : public ParserObj {
-    Lexer *lexer;
-public:
-    ExprNode *parse(std::istream &str, SymbolExprNode **update ) { return 0; }
-};
-
-class SymbolParserObj : public ParserObj {
-    int _token_id;
-public:
-    SymbolParserObj(Lexer *l, int token_id){ lexer = l; _token_id=token_id;}
-    ExprNode *parse(std::istream &str, SymbolExprNode **update ) {
-        if (lexer->peek(str) == _token_id) {
-            SymbolExprNode *res = new SymbolExprNode();
-            return lexer->get(str, res);
-        } else {
-            return 0;
-        }
-    }
-};
-
-class SeqParserObj : public ParserObj {
-    ParserObj *subs[10];
-public:
-    SeqParserObj(Lexer *pl, ParserObj *p0, ParserObj *p1=0, ParserObj *p2=0, ParserObj *p3=0, ParserObj *p4=0, ParserObj *p5=0, ParserObj *p6=0, ParserObj *p7=0, ParserObj *p8=0, ParserObj *p9=0) {
-      lexer = pl;
-      subs[0] = p0;
-      subs[1] = p1;
-      subs[2] = p2;
-      subs[3] = p3;
-      subs[4] = p4;
-      subs[5] = p5;
-      subs[6] = p6;
-      subs[7] = p7;
-      subs[8] = p8;
-      subs[9] = p9;
-    }
-    ExprNode *parse(std::istream &str, SymbolExprNode **update ) {
-        MultiExprNode *res = new MultiExprNode;
-        for(int i = 0; i < 10; i++ ) { 
-            if(subs[i]) {
-                res->subexp[i] = subs[i]->parse(str, update);
-                if (res->subexp[i] == 0) {
-                    if ( i > 0 ) {
-                       lexer->syntax_error();
-                    }
-                    return 0;
-                }
-            }
-        }
-        return res;
-    }
-};
-
-
-class OrParserObj : public ParserObj {
-    ParserObj *subs[10];
-public:
-    OrParserObj(Lexer *pl, ParserObj *p0, ParserObj *p1=0, ParserObj *p2=0, ParserObj *p3=0, ParserObj *p4=0, ParserObj *p5=0, ParserObj *p6=0, ParserObj *p7=0, ParserObj *p8=0, ParserObj *p9=0) {
-      lexer = pl;
-      subs[0] = p0;
-      subs[1] = p1;
-      subs[2] = p2;
-      subs[3] = p3;
-      subs[4] = p4;
-      subs[5] = p5;
-      subs[6] = p6;
-      subs[7] = p7;
-      subs[8] = p8;
-      subs[9] = p9;
-    }
-    ExprNode *parse(std::istream &str, SymbolExprNode **update ) {
-        ExprNode *res;
-        for(int i = 0; i < 10; i++ ) { 
-            if(subs[i]) {
-                res = subs[i]->parse(str, update);
-                if( res ) {
-                    return res;
-                }
-            }
-        }
-        return 0;
-    }
-};
-
-static Lexer _our_lexer;
-
-static std::map<const char *, ParserObj *> _parser_dict;
-
-void 
-Define(const char *name, ParserObj *what) { // define an expression by name
-   _parser_dict[name] = what;
-}
-
-ParserObj *
-Lookup(const char *name) {
-   return _parser_dict[name];
-}
-
-ParserObj *
-Symbol(const char *pc){    // match a regexp 
-   int token_id = _our_lexer.add_regexp(pc);
-   ParserObj *res = new SymbolParserObj(&_our_lexer, token_id);
-   return res;
-}
-
-ParserObj *
-Or(ParserObj *p0, ParserObj *p1=0, ParserObj *p2=0, ParserObj *p3=0, ParserObj *p4=0, ParserObj *p5=0, ParserObj *p6=0, ParserObj *p7=0, ParserObj *p8=0, ParserObj *p9=0) {
-    return new OrParserObj(&_our_lexer, p0, p1, p2, p3, p4, p5, p6, p7, p8, p9);
-}
-
-ParserObj *
-Seq(ParserObj *p0, ParserObj *p1=0, ParserObj *p2=0, ParserObj *p3=0, ParserObj *p4=0, ParserObj *p5=0, ParserObj *p6=0, ParserObj *p7=0, ParserObj *p8=0, ParserObj *p9=0) {
-    return new SeqParserObj(&_our_lexer, p0, p1, p2, p3, p4, p5, p6, p7, p8, p9);
-}
-
-ParserObj *
-Empty() {
-   static EmptyParserObj empty;
-   return &empty;
-}
-
-ParserObj *
-Opt(const char *p0, ParserObj *p1=0, ParserObj *p2=0, ParserObj *p3=0, ParserObj *p4=0, ParserObj *p5=0, ParserObj *p6=0, ParserObj *p7=0, ParserObj *p8=0, ParserObj *p9=0) {
-    return new SeqParserObj(&_our_lexer, Or(Symbol(p0), p1, p2, p3, p4, p5, p6, p7, p8, p9),Empty());
-}
-
-void build_parser() {
-
-    Define("func",  
-       Seq(Symbol("function"), Symbol("\\w+"),  Lookup("formal_arg_list"), Lookup("spec_type"), Opt("pre:", Lookup("predicate"), Opt("post:", Lookup("predicate")) , Lookup("block"))));
-
-    Define("block", 
-        Seq(Symbol("begin"), Lookup("stmt_seq"), Symbol("end")));
-
-    Define("spec_type", 
-        Seq(Symbol(":") , Lookup("type")));
+    Lexer() {
+        max_res = 128;
+        n_res = 0;
 
     Define("formal_arg_list", 
         Opt("(", Lookup("formal_list"), Symbol(")")));
