@@ -366,6 +366,13 @@ void build_parser() {
                            Seq( Symbol("|"), Lookup("expression")),
                            Empty())));
 
+    Define("term", Seq(Lookup("primary"), Or(
+                          Seq( Symbol("*"), Lookup("term")),
+                          Seq( Symbol("/"), Lookup("term")),
+                          Seq( Symbol("%"), Lookup("term")),
+                          Seq( Symbol("&"), Lookup("term")),
+                          Empty())));
+
     Define("primary", Or( 
                   Seq( Symbol("-"), Lookup("primary")),
                   Seq( Symbol("!"), Lookup("primary")),
