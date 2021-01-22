@@ -268,8 +268,7 @@ Lookup(const char *name) {
 }
 
 ParserObj *
-Symbol(const char *pc){    // match a regexp 
-   int token_id = _our_lexer.add_regexp(pc);
+Symbol(int token_id){    // match a regexp 
    ParserObj *res = new SymbolParserObj(&_our_lexer, token_id);
    return res;
 }
