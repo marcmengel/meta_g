@@ -1,3 +1,7 @@
+#include "tokens.h"
+#include <iostream>
+#include <ctype.h>
+
 /* Symbols split out with state numbers:
     ===========================
     < 1 = 2
@@ -56,9 +60,9 @@
 
 struct graphrow {
   int final_sym;
-  char *trans;
+  const char *trans;
   int nss[32];
-} scanner_graph = {
+} scanner_graph[76] = {
     //0
     { -1, "<=>|-:!/.()[]{}*&%+0abcDdefioWr", { 1,4,8,10,11,13,14,16,18,19,20,21,22,23,24,25,26,27,28,29,32,37,42,46,47,49,52,61,72,62,63}},
     //1
@@ -132,7 +136,7 @@ struct graphrow {
     //35
     {T_NAME, "yW", {36,62}},
     //36
-    {T_ARRAY, "W", {62,}}
+    {T_ARRAY, "W", {62,}},
     //37
     {T_NAME, "eW", {38, 62}},
     //38
@@ -210,46 +214,14 @@ struct graphrow {
     //74
     {T_CLASS, "W", {62}},
     //75
-    {T_IF, "W", {62}},
+    {T_IF, "W", {62}}
 };
+
+#define MAXTOKEN 128
 
 char yytext[MAXTOKEN];
 
-gettoken(streamish &s) {
-    static int curline = 1;
-    static int curcol = 0;
-    int curstate = 0;
-    int curchar = 0;
-    c = s.getc();
-    curcol++;
-    while( isspace(c) ) {
-       if ('\n' == c) {
-          curline++;
-          curcol = 0;
-       }
-       c = s.getc();
-       curcol++;
-    }
-    do {
-        yytext[curchar++] = c;
-        curcol++;
-        ns = nextstate(curstate, c)
-    } while (ns != -1);
-
-    // if the character is an error, don't push it back
-    // just complain about it.  Otherwise we would keep
-    // getting it back next time...
-    //
-    if (scanner_graph[curstate].final_sym != -1 ) {
-        s.ungetc(c);
-        curcol--;
-        return scanner_graph[curstate].final_sym;
-    } else {
-        syntax_error(curline, curcol, c);
-    }
-}
-
-int nextstate(curstate, c) {
+int nextstate(int curstate, int c) {
     for(int i = 0; scanner_graph[curstate].trans[i] != 0 ; i++) {
        switch( scanner_graph[curstate].trans[i] ){
        case 'W': 
@@ -261,14 +233,59 @@ int nextstate(curstate, c) {
                return scanner_graph[curstate].nss[i]; 
            break;
        case 'X': 
-           if (ishexnumber(c)) 
+           if (isxdigit(c)) 
                return scanner_graph[curstate].nss[i]; 
            break;
        default:  
-           if (c == scanner_graph[curstate][trans][i])
+           if (c == scanner_graph[curstate].trans[i])
                return scanner_graph[curstate].nss[i]; 
            break;
        }
    }
    return -1;
 }
+
+void
+syntax_error(int curline, int curcol, int c){
+        std::cerr << "Syntax error at line " << curline << " column " << curcol <<  ": unexpected character '"<< c << "' ";
+}
+
+int
+gettoken(std::iostream  &s) {
+    static int curline = 1;
+    static int curcol = 0;
+    int curstate = 0;
+    int curchar = 0;
+    int c;
+    int ns;
+    c = s.get();
+    curcol++;
+    while( isspace(c) ) {
+       if ('\n' == c) {
+          curline++;
+          curcol = 0;
+       }
+       c = s.get();
+       curcol++;
+    }
+    ns = nextstate(curstate, c);
+    while (ns != -1) {
+        yytext[curchar++] = c;
+        curcol++;
+        c = s.get();
+        ns = nextstate(curstate, c);
+    }
+
+    // if the character is an error, don't push it back
+    // just complain about it.  Otherwise we would keep
+    // getting it back next time...
+    //
+    if (scanner_graph[curstate].final_sym != -1 ) {
+        s.unget();
+        curcol--;
+        return scanner_graph[curstate].final_sym;
+    } else {
+        syntax_error(curline,curcol, c);
+    }
+}
+
