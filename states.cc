@@ -247,11 +247,11 @@ int nextstate(int curstate, int c) {
 
 void
 syntax_error(int curline, int curcol, int c){
-        std::cerr << "Syntax error at line " << curline << " column " << curcol <<  ": unexpected character '"<< c << "' ";
+        std::cerr << "Syntax error at line " << curline << " column " << curcol <<  ": unexpected character '"<< (char)c << "' ";
 }
 
 int
-gettoken(std::iostream  &s) {
+gettoken(std::istream  &s) {
     static int curline = 1;
     static int curcol = 0;
     int curstate = 0;
@@ -261,6 +261,7 @@ gettoken(std::iostream  &s) {
     c = s.get();
     curcol++;
     while( isspace(c) ) {
+       std::cout << "skipping whitespace :'" << (char)c << "'\n";
        if ('\n' == c) {
           curline++;
           curcol = 0;
@@ -269,11 +270,14 @@ gettoken(std::iostream  &s) {
        curcol++;
     }
     ns = nextstate(curstate, c);
+    std::cout << "char '" << (char)c << "' takes us to state " << ns << "\n";
     while (ns != -1) {
+        curstate = ns;
         yytext[curchar++] = c;
         curcol++;
         c = s.get();
         ns = nextstate(curstate, c);
+        std::cout << "char '" << (char)c << "' takes us to state " << ns << "\n";
     }
 
     // if the character is an error, don't push it back
@@ -289,3 +293,15 @@ gettoken(std::iostream  &s) {
     }
 }
 
+#ifdef UNITTEST
+main() {
+   int t;
+   while( !std::cin.eof() ) {
+       t = gettoken(std::cin);
+       std::cout << "Got token: " << t ;
+       if (t < 128)
+           std::cout << "char: " << (char)t ;
+       std::cout << "\n";
+   }
+}
+#endif
