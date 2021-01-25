@@ -21,3 +21,8 @@
 #define T_NUMBER 221
 #define T_OD 222
 #define T_RETURN 223
+#define T_ENDGUARD 224
+
+extern const char *tokenmap[];
+extern const char *tokenstr(int);
+

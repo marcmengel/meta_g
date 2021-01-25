@@ -2,6 +2,12 @@
 #include <iostream>
 #include <ctype.h>
 
+#ifdef DEBUG
+static int _debug = 1;
+#else
+static int _debug = 0;
+#endif
+
 /* Symbols split out with state numbers:
     ===========================
     < 1 = 2
@@ -16,6 +22,7 @@
     - 11
     - 11 > 12
     : 13
+    ; 76 ; 77
     ! 14
     ! 14 = 15
     ! 14 = 15 = 16
@@ -61,10 +68,10 @@
 struct graphrow {
   int final_sym;
   const char *trans;
-  int nss[32];
-} scanner_graph[76] = {
+  int nss[35];
+} scanner_graph[78] = {
     //0
-    { -1, "<=>|-:!/.()[]{}*&%+0abcDdefioWr", { 1,4,8,10,11,13,14,16,18,19,20,21,22,23,24,25,26,27,28,29,32,37,42,46,47,49,52,61,72,62,63}},
+    { -1, "<=>|-:;!/.()[]{}*&%+0abcDdefioWr", { 1,4,8,10,11,13,76,14,16,18,19,20,21,22,23,24,25,26,27,28,29,32,37,42,46,47,49,52,61,72,62,63}},
     //1
     {'<',"=",{2}},
     //2
@@ -186,7 +193,7 @@ struct graphrow {
     //60
     {T_FUNCTION, "W", {62}},
     //61
-    {T_NAME, "fW", {71, 62}},
+    {T_NAME, "fW", {75, 62}},
     //62
     {T_NAME, "W", {62}},
     //63
@@ -214,7 +221,10 @@ struct graphrow {
     //74
     {T_CLASS, "W", {62}},
     //75
-    {T_IF, "W", {62}}
+    {T_IF, "W", {62}},
+    //76
+    {';', ";", {77}},
+    {T_ENDGUARD, "", {}},
 };
 
 #define MAXTOKEN 128
@@ -261,7 +271,7 @@ gettoken(std::istream  &s) {
     c = s.get();
     curcol++;
     while( isspace(c) ) {
-       std::cout << "skipping whitespace :'" << (char)c << "'\n";
+       _debug && std::cout << "skipping whitespace :'" << (char)c << "'\n";
        if ('\n' == c) {
           curline++;
           curcol = 0;
@@ -270,14 +280,14 @@ gettoken(std::istream  &s) {
        curcol++;
     }
     ns = nextstate(curstate, c);
-    std::cout << "char '" << (char)c << "' takes us to state " << ns << "\n";
+    _debug && std::cout << "char '" << (char)c << "' takes us to state " << ns << "\n";
     while (ns != -1) {
         curstate = ns;
         yytext[curchar++] = c;
         curcol++;
         c = s.get();
         ns = nextstate(curstate, c);
-        std::cout << "char '" << (char)c << "' takes us to state " << ns << "\n";
+        _debug && std::cout << "char '" << (char)c << "' takes us to state " << ns << "\n";
     }
 
     // if the character is an error, don't push it back
@@ -287,8 +297,9 @@ gettoken(std::istream  &s) {
     if (scanner_graph[curstate].final_sym != -1 ) {
         s.unget();
         curcol--;
+        yytext[curchar] = 0;
         return scanner_graph[curstate].final_sym;
-    } else {
+    } else if (c != -1 ) {
         syntax_error(curline,curcol, c);
     }
 }
@@ -298,10 +309,7 @@ main() {
    int t;
    while( !std::cin.eof() ) {
        t = gettoken(std::cin);
-       std::cout << "Got token: " << t ;
-       if (t < 128)
-           std::cout << "char: " << (char)t ;
-       std::cout << "\n";
+       _debug && std::cout << "\nGot token: " << t << " " << tokenstr(t) << ": '" << yytext << "'\n";
    }
 }
 #endif
