@@ -33,133 +33,21 @@ public:
 };
 
 class Lexer {
-    struct edge { int fromstate; int cc; int tostate;} *graph;
-    int *isfinal;
-    static const int MAXLINE=1024;
-    int curtoken;
-    int curlinenum;
-    char curline[MAXLINE];
-    char *curpos;
-    char **re_list;
-    int n_res;
-    int max_res;
-    bool compiled;
-    void compile_all();        // internal, called by peek/get
+   int next_token;
 public:
-    Lexer() {
-        max_res = 128;
-        n_res = 0;
-        curtoken =0;
-        curlinenum = 0;
-        curpos = curline;
-        max_res = 1024;
-        re_list = malloc(sizeof(char *)*max_res);
-        n_states = 0;
-        max_states = 1024;
-        isfinal = malloc(sizeof(int)*max_states);
-        n_edges = 0;
-        max_edges = 1024;
-        graph = malloc(sizeof(struct edge)*max_states);
-        n_res = 0;
-        compiled = false;
-     }
-
-    int add_regexp(const char *re);  // add a regexp, geta token-id {
-        for(int i = 0; i < n_res; i++) {
-            if (0 == strcmp(re_list[i], re)) {
-                return i;
-            }
-        }
-        if (n_res == max_res) {
-            max_res = 2 * max_res;
-            re_list = realloc(re_list, sizeof(char *)*max_res):
-        }
-        re_list[n_res++] = re;
-        return n_res - 1;
-    }
-
-    void syntax_error();        // print error at file:line 
-
-    void add_edge(int cc, int froms, int tos ) {
-        // check if we already have it..
-        for( i = 0; i < n_edges; i++ ) {
-            if (graph[i].cc == cc && (graph[i].fromstate == froms || froms == -1) && (graph[i].tostate == tos || tos == -1)) {
-               // we have the edge, and it goes to "tostate" so return it
-               return graph[i].tostate;
-            }
-         }
-         // we need  a new edge, possibly to a new state
-         if (tos == -1) {
-             // new state
-             if (n_states = max_states ) {
-                 max_states = 2 * max_states;
-                 isfinal = realloc(isfinal, max_states * sizeof(int));
-             }
-             tos = n_states;
-             isfinal[n_states++] = -1;
-         }
-         if (n_edges == max_edges) {
-            max_edges =  2 * max_edges;
-            graph = realloc(graph, max_edges * sizeof(struct edge));
-         }
-         graph[n_edges].fromstate = froms;
-         graph[n_edges].cc = cc;
-         graph[n_edges].tostate = tos;
-    }
-    void
-    compile_all() {
-       char *pc
-       if( compiled ) {
-          return; 
-       }
-       // really just building the NDA, not compiling it to
-       // a deterministic one...
-       for( i = 0; i < n_res; i++ )  {
-           pc = re_list[i];
-           curstate = 0;
-           while( *pc ) {
-               prevstate = curstate;
-               if( pc[0] == '\\') {
-                  if (pc[1] == 0) {
-                      break;
-                  }
-                  if( pc[1] == '.' || pc[1] == '$' || pc[1] == '|') {
-                      // magic chars the backslash makes literal
-                      curstate = add_edge(pc[1], -1);
-                  } else if { pc[1] == '(' } {
-                      parenstates[n_parens++] = curstate;
-                  } else if { pc[1] == ')' } {
-                      prevstate = parenstates[--n_parens];
-                  } else {
-                      curstate = add_edge(128+pc[1], -1);
-                  }
-                  pc += 2;
-               } else if (pc[0] == '.' || pc[0] == '$' || pc[0] == '|') {
-                  // magic chars are flagged
-                  curstate = add_edge(128+pc[0], -1);
-                  pc += 1;
-               } else {
-                  curstate = add_edge(pc[0],-1);
-                  pc += 1;
-               }
-               if (pc[0] == '+') {
-                  add_edge(-1, cur_state, prev_state);
-               } else if (pc[0] == '+') {
-                  add_edge(-1, prev_state, cur_state); 
-                  add_edge(-1, cur_state, prev_state);
-               }
-           }
-           mark_final(cur_state, i);
-       }
-    }
 
     int peek(std::istream &s) {  // get token-id of upcoming token
-       compile_all(); 
-       return curtoken;
+        return next_token;
     }
 
-    SymbolExprNode *get(std::istream &s, SymbolExprNode *update);
+    SymbolExprNode *get(std::istream &s, SymbolExprNode *update) {
                                // consume token, put in SymbolExprNode
+         res = new SymbolExprNode()
+         res->token = next_token();
+         res->symbol = strdup(yytext);
+         gettoken();
+         return res;
+    }
 };
 
 class ParserObj {

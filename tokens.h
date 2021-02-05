@@ -22,6 +22,9 @@
 #define T_OD 222
 #define T_RETURN 223
 #define T_ENDGUARD 224
+#define T_IN 225
+#define T_FORALL 226
+#define T_EXISTS 227
 
 extern const char *tokenmap[];
 extern const char *tokenstr(int);
