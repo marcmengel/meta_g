@@ -69,11 +69,11 @@ static int _debug = 0;
 
 struct graphrow {
   int final_sym;
-  const char *trans;
+  const unsigned char *trans;
   int nss[35];
-} scanner_graph[78] = {
+} scanner_graph[100] = {
     //0
-    { -1, "<=>|-:;!/.()[]{}*&%+0abcDdefioWr\342", { 1,4,8,10,11,13,76,14,16,18,19,20,21,22,23,24,25,26,27,28,29,32,37,42,46,47,49,52,61,72,62,63,79}},
+    { -1, "<=>|-:;!/.()[]{}*&%+0abcDdefiopWr\342", { 1,4,8,10,11,13,76,14,16,18,19,20,21,22,23,24,25,26,27,28,29,32,37,42,46,47,49,52,61,72,86,62,63,79}},
     //1
     {'<',"=",{2}},
     //2
@@ -147,7 +147,7 @@ struct graphrow {
     //36
     {T_ARRAY, "W", {62,}},
     //37
-    {T_NAME, "eW", {38, 62}},
+    {T_NAME, "eoW", {38, 94, 62}},
     //38
     {T_NAME, "gW", {39, 62}},
     //39
@@ -237,17 +237,42 @@ struct graphrow {
     //81 utf8 symbols...
     {-1, "\203\212\247\250", {84,78,72,71}},
     //82 utf8 symbols...
-    {-1, "\240\244\245\241\242" {15,2,9,6,16}},
+    {-1, "\240\244\245\241\242", {15,2,9,6,16}},
     //83 utf8 symbols...
     {-1, "\257", {77}},
     //84 utf8 symbols
     {T_EXISTS, "", {}},
     //86 
+    {T_NAME, "roW", {87,88,62}},
+    //87 
+    {T_NAME, "eW", {89,62}},
+    //88 
+    {T_NAME, "sW", {90,62}},
+    //89 
+    {T_NAME, ":W", {91,62}},
+    //90 
+    {T_NAME, "tW", {92,62}},
+    //91 
+    {T_PRE, "", {}},
+    //92
+    {T_NAME, ":W", {93,62}},
+    //93
+    {T_POST, "", {}},
+    //94
+    {T_NAME, "uW", {95,62}},
+    //95
+    {T_NAME, "nW", {96,62}},
+    //96
+    {T_NAME, "dW", {97,62}},
+    //97
+    {T_NAME, ":W", {98,62}},
+    //98
+    {T_POST, "", {}},
 };
 
 #define MAXTOKEN 128
 
-char yytext[MAXTOKEN];
+unsigned char yytext[MAXTOKEN];
 
 int nextstate(int curstate, int c) {
     for(int i = 0; scanner_graph[curstate].trans[i] != 0 ; i++) {
@@ -273,9 +298,11 @@ int nextstate(int curstate, int c) {
    return -1;
 }
 
+int yyline, yycol, yychar;
+
 void
-syntax_error(int curline, int curcol, int c){
-        std::cerr << "Syntax error at line " << curline << " column " << curcol <<  ": unexpected character '"<< (char)c << "' ";
+syntax_error(msg){
+        std::cerr << "Syntax error at line " << yyline << " column " << yycol <<  ": " << msg << " '"<< (char)yychar << "' \\"<< std::oct <<  yychar << "\n";
 }
 
 int
@@ -288,8 +315,8 @@ gettoken(std::istream  &s) {
     int ns;
     c = s.get();
     curcol++;
-    while( isspace(c) ) {
-       _debug && std::cout << "skipping whitespace :'" << (char)c << "'\n";
+    while( c < 128 &&  isspace(c) ) {
+       _debug && std::cout << "skipping whitespace :'" << (unsigned char)c << "'\n";
        if ('\n' == c) {
           curline++;
           curcol = 0;
@@ -318,7 +345,10 @@ gettoken(std::istream  &s) {
         yytext[curchar] = 0;
         return scanner_graph[curstate].final_sym;
     } else if (c != -1 ) {
-        syntax_error(curline,curcol, c);
+        yyline = curline;
+        yycol = curcol;
+        yychar = c;
+        syntax_error("unexpected character");
     }
 }
 

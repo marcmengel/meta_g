@@ -7,3 +7,12 @@ if
        i = g(i);
        ;;
 fi
+
+if
+   i ≤ 10 →
+       i = f(junk)
+       ▯
+   i ≥ 10 ∧ k == 5→
+       i = g(junk)
+       ▯
+fi
