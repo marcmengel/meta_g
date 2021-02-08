@@ -1,4 +1,7 @@
 
+func fred( int: apple, float pear ) : float
+begin
+
 if
   i < 10 -> 
        i = f(i)
@@ -16,3 +19,4 @@ if
        i = g(junk)
        ▯
 fi
+end

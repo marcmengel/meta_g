@@ -213,7 +213,7 @@ public:
            Seq(Symbol(T_FUNCTION), Symbol(T_NAME),  Lookup("formal_arg_list"), Lookup("spec_type"), Opt(T_PRE, Lookup("predicate"), Opt(T_POST, Lookup("predicate")) , Lookup("block"))));
 
         Define("block", 
-            Seq(Symbol(T_BEGIN), Lookup("stmt_seq"), Symbol(T_END)));
+            Seq(Symbol(T_BEGIN), Lookup("decl_seq"),  Lookup("stmt_seq"), Symbol(T_END)));
 
         Define("spec_type", 
             Seq(Symbol(':') , Lookup("type")));

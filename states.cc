@@ -64,16 +64,17 @@ static int _debug = 0;
        \\w  62
     \\w 62 (+)
     r 63 e 64 t 65 u 66 r 67 n 68
+    v 102 a 103 r 104
     ===========================
 */
 
 struct graphrow {
   int final_sym;
   const unsigned char *trans;
-  int nss[35];
-} scanner_graph[102] = {
+  int nss[40];
+} scanner_graph[106] = {
     //0
-    { -1, "<=>|-:;!/.()[]{}*&%+0abcDdefiopWr\342", { 1,4,8,10,11,13,76,14,16,18,19,20,21,22,23,24,25,26,27,28,29,32,37,42,46,47,49,52,61,72,86,62,63,79}},
+    { -1, ",<=>|-:;!/.()[]{}*&%+0abcDdefiopWrv\342", { 105,1,4,8,10,11,13,76,14,16,18,19,20,21,22,23,24,25,26,27,28,29,32,37,42,46,47,49,52,61,72,86,62,63,102,79}},
     //1
     {'<',"=",{2}},
     //2
@@ -242,6 +243,8 @@ struct graphrow {
     {-1, "\257", {77}},
     //84 utf8 symbols
     {T_EXISTS, "", {}},
+    //85 -- unused slot...
+    {-1, "", {}},
     //86 
     {T_NAME, "roW", {87,88,62}},
     //87 
@@ -274,6 +277,14 @@ struct graphrow {
     {T_NAME, ":W",{101,62}},
     //101
     {T_INV, "",{}},
+    //102
+    {T_NAME, "aW", {103,62}},
+    //103
+    {T_NAME, "rW", {104,62}},
+    //104
+    {T_VAR, "W", {62}},
+    //105
+    {',', "", {}},
 };
 
 #define MAXTOKEN 128
@@ -308,7 +319,7 @@ int yyline, yycol, yychar;
 
 void
 syntax_error(const char *msg){
-        std::cerr << "Syntax error at line " << yyline << " column " << yycol <<  ": " << msg << " '"<< (char)yychar << "' \\"<< std::oct <<  yychar << "\n";
+        std::cerr << "Syntax error at line " << yyline << " column " << yycol <<  ": " << msg << " at char '"<< (char)yychar << "' \\"<< std::oct <<  yychar << "\n";
 }
 
 int
@@ -361,7 +372,7 @@ gettoken(std::istream  &s) {
 #ifdef UNITTEST
 main() {
    int t;
-   while( !std::cin.eof() ) {
+   while( std::cin.good() ) {
        t = gettoken(std::cin);
        _debug && std::cout << "\nGot token: " << t << " " << tokenstr(t) << ": '" << yytext << "'\n";
    }
