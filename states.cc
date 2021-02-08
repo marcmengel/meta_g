@@ -70,7 +70,7 @@ static int _debug = 0;
 
 struct graphrow {
   int final_sym;
-  const unsigned char *trans;
+  const char *trans;
   int nss[40];
 } scanner_graph[106] = {
     //0
@@ -293,7 +293,7 @@ unsigned char yytext[MAXTOKEN];
 
 int nextstate(int curstate, int c) {
     for(int i = 0; scanner_graph[curstate].trans[i] != 0 ; i++) {
-       switch( scanner_graph[curstate].trans[i] ){
+       switch( scanner_graph[curstate].trans[i] ) {
        case 'W': 
            if (isalnum(c))     
                return scanner_graph[curstate].nss[i]; 
@@ -307,7 +307,7 @@ int nextstate(int curstate, int c) {
                return scanner_graph[curstate].nss[i]; 
            break;
        default:  
-           if (c == scanner_graph[curstate].trans[i])
+           if ((unsigned char)c == (unsigned char)scanner_graph[curstate].trans[i])
                return scanner_graph[curstate].nss[i]; 
            break;
        }
@@ -342,7 +342,8 @@ gettoken(std::istream  &s) {
        curcol++;
     }
     ns = nextstate(curstate, c);
-    _debug && std::cout << "char '" << (char)c << "' takes us to state " << ns << "\n";
+    _debug && (c > 31 && c < 128) &&  std::cout << "char '" << (char)c << "' takes us to state " << ns << "\n";
+    _debug && (c < 32 || c > 127) &&  std::cout << "char '\\" << std::oct << c << "' takes us to state " << ns << "\n";
     while (ns != -1) {
         curstate = ns;
         yytext[curchar++] = c;
