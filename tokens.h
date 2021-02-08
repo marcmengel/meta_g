@@ -12,12 +12,12 @@
 #define T_IF 212
 #define T_IMPL 213
 #define T_IMPLBY 214
-#define T_LEQ 215
-#define T_LOR 216
-#define T_NAME 217
-#define T_NEQ 218
-#define T_NEQUIV 219
-#define T_NUM 220
+#define T_LAND 215
+#define T_LEQ 216
+#define T_LOR 217
+#define T_NAME 218
+#define T_NEQ 219
+#define T_NEQUIV 220
 #define T_NUMBER 221
 #define T_OD 222
 #define T_RETURN 223
@@ -28,6 +28,7 @@
 #define T_PRE 228
 #define T_POST 229
 #define T_BOUND 230
+#define T_INV 231
 
 extern const char *tokenmap[];
 extern const char *tokenstr(int);

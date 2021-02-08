@@ -13,7 +13,7 @@ public:
     class SymbolExprNode;
 
     Lexer *_our_lexer;
-    ParserObj *top;
+    ParserObj *_top;
     static std::map<const char *, ParserObj *> _parser_dict;
 
     class ExprNode {
@@ -261,9 +261,9 @@ public:
                  Seq( Symbol(T_IMPLBY), Lookup("predicate")),
                  Empty())));
 
-        Define("and_pred",  Seq(Lookup("or_pred"), Opt(T_AND, Lookup("and_pred"))));
+        Define("and_pred",  Seq(Lookup("or_pred"), Opt(T_LAND, Lookup("and_pred"))));
 
-        Define("or_pred",  Seq(Lookup("comp_pred"), Opt(T_OR, Lookup("or_pred"))));
+        Define("or_pred",  Seq(Lookup("comp_pred"), Opt(T_LOR, Lookup("or_pred"))));
 
         Define("comp_pred", Seq(Lookup("expression"), Or(
                                Seq( Symbol(T_EQUAL), Lookup("comp_pred")),
@@ -291,7 +291,7 @@ public:
                       Symbol(T_NUMBER),
                       Symbol(T_NUMBER),
                       Seq( Symbol(T_NAME), Or(
-                            Seq( Symbol('['), Lookup("expression"), Symbol("]")),
+                            Seq( Symbol('['), Lookup("expression"), Symbol(']')),
                             Seq( Symbol('('), Lookup("expression_list"), Symbol(')')),
                             Seq( Symbol('.'), Lookup("primary")),
                             Empty()))));

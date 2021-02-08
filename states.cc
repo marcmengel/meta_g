@@ -71,7 +71,7 @@ struct graphrow {
   int final_sym;
   const unsigned char *trans;
   int nss[35];
-} scanner_graph[100] = {
+} scanner_graph[102] = {
     //0
     { -1, "<=>|-:;!/.()[]{}*&%+0abcDdefiopWr\342", { 1,4,8,10,11,13,76,14,16,18,19,20,21,22,23,24,25,26,27,28,29,32,37,42,46,47,49,52,61,72,86,62,63,79}},
     //1
@@ -125,17 +125,17 @@ struct graphrow {
     //25
     {'*', "", {}},
     //26
-    {'&', "&", {72,}},
+    {'&', "&", {99,}},
     //27
     {'%', "", {}},
     //28
     {'+', "", {}},
     //29
-    {T_NUM, "xD", {30, 46}},
+    {T_NUMBER, "xD", {30, 46}},
     //30
     {-1, "X", {31,}},
     //31 
-    {T_NUM, "X", {31,}},
+    {T_NUMBER, "X", {31,}},
     //32
     {T_NAME, "rW", {33,62}},
     //33
@@ -229,13 +229,13 @@ struct graphrow {
     //77
     {T_ENDGUARD, "", {}},
     //78
-    {T_IN, "W", {62}},
+    {T_IN, "vW", {100,62}},
     //79 utf8 symbols...
     {-1, "\206\210\211\226", {80, 81, 82, 83}},
     //80 utf8 symbols...
     {-1, "\222", {12}},
     //81 utf8 symbols...
-    {-1, "\203\212\247\250", {84,78,72,71}},
+    {-1, "\203\212\247\250", {84,78,99,71}},
     //82 utf8 symbols...
     {-1, "\240\244\245\241\242", {15,2,9,6,16}},
     //83 utf8 symbols...
@@ -268,6 +268,12 @@ struct graphrow {
     {T_NAME, ":W", {98,62}},
     //98
     {T_POST, "", {}},
+    //99
+    {T_LAND, "", {}},
+    //100
+    {T_NAME, ":W",{101,62}},
+    //101
+    {T_INV, "",{}},
 };
 
 #define MAXTOKEN 128
@@ -301,7 +307,7 @@ int nextstate(int curstate, int c) {
 int yyline, yycol, yychar;
 
 void
-syntax_error(msg){
+syntax_error(const char *msg){
         std::cerr << "Syntax error at line " << yyline << " column " << yycol <<  ": " << msg << " '"<< (char)yychar << "' \\"<< std::oct <<  yychar << "\n";
 }
 
