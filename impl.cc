@@ -209,14 +209,21 @@ public:
     void build_parser() {
 
         _our_lexer = new Lexer();
+
         Define("func",  
            Seq(Symbol(T_FUNCTION), Symbol(T_NAME),  Lookup("formal_arg_list"), Lookup("spec_type"), Opt(T_PRE, Lookup("predicate"), Opt(T_POST, Lookup("predicate")) , Lookup("block"))));
 
         Define("block", 
             Seq(Symbol(T_BEGIN), Lookup("decl_seq"),  Lookup("stmt_seq"), Symbol(T_END)));
 
+        Define("decl_seq" 
+            Or(Seq(Lookup("decl", decl_seq),Empty()));
+
+        Define("decl", Seq(Symbol(T_VAR), Lookup("name_list"), Symbol(":"), Lookup("type"), Symbol(';')));
+
         Define("spec_type", 
             Seq(Symbol(':') , Lookup("type")));
+
         Define("formal_arg_list", 
             Opt('(', Lookup("formal_list"), Symbol(')')));
 
@@ -299,14 +306,25 @@ public:
     }
     
     ExprNode *parse(std::istream &str) {
-        _top->parse(str, 0);
+        return _top->parse(str, 0);
     }
 };
 
+void *
+dumper(ExprNode *op, int nargs, void**pargs) {
+    std::cout <<  op << "\n";
+}
+
 #ifdef UNITTEST
 main() {
-   p = Parser()
+   ExperNode *res;
+   std::cout <<  "starting:\n";
+   p = Parser();
    p.build_parser();
-   p.parse(std::cin);
+   std::cout <<  "parse output:\n";
+   res = p.parse(std::cin);
+   std::cout <<  "expr dump:\n";
+   res->walk(dumper);
 }
+
 #endif
