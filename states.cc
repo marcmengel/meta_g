@@ -328,26 +328,23 @@ gettoken(std::istream  &s) {
     int curchar = 0;
     int c;
     int ns;
-    c = s.get();
-    yycol++;
-    while( c < 128 &&  isspace(c) ) {
+    c = s.get(); yycol++;
+    while( c < 128 && isspace(c) ) {
        _debug && std::cout << "skipping whitespace :'" << (unsigned char)c << "'\n";
        if ('\n' == c) {
           _debug && std::cout << "currrent line: " << yyline << "\n";
           yyline++;
           yycol = 0;
        }
-       c = s.get();
-       yycol++;
+       c = s.get(); yycol++;
     }
     ns = nextstate(curstate, c);
-    _debug && (c > 31 && c < 128) &&  std::cout << "char '" << (char)c << "' takes us to state " << ns << "\n";
-    _debug && (c < 32 || c > 127) &&  std::cout << "char '\\" << std::oct << c << "' takes us to state " << ns << "\n";
+    _debug && (c > 31 && c < 128 && !isspace(c)) &&  std::cout << "char '" << (char)c << "' takes us to state " << ns << "\n";
+    _debug && (c < 32 || c > 127 || isspace(c)) &&  std::cout << "char '\\" << std::oct << c << "' takes us to state " << ns << "\n";
     while (ns != -1) {
         curstate = ns;
         yytext[curchar++] = c;
-        yycol++;
-        c = s.get();
+        c = s.get(); yycol++;
         ns = nextstate(curstate, c);
         _debug && std::cout << "char '" << (char)c << "' takes us to state " << ns << "\n";
     }
@@ -357,8 +354,7 @@ gettoken(std::istream  &s) {
     // getting it back next time...
     //
     if (scanner_graph[curstate].final_sym != -1 ) {
-        s.unget();
-        yycol--;
+        s.unget(); yycol--;
         yytext[curchar] = 0;
         return scanner_graph[curstate].final_sym;
     } else if (c != -1 ) {

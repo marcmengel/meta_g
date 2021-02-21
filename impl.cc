@@ -86,8 +86,14 @@ public:
     };
 
     class EmptyParserObj : public ParserObj {
+        
     public:
-        ExprNode *parse(std::istream &str, SymbolExprNode **update ) { return 0; }
+        ExprNode *parse(std::istream &str, SymbolExprNode **update ) { 
+           static SymbolExprNode empty;
+           empty.symbol = "";
+           empty.tokenid = -1;
+           return &empty; 
+        }
     };
 
     class SymbolParserObj : public ParserObj {
@@ -96,7 +102,7 @@ public:
         SymbolParserObj(Lexer *l, int token_id){ lexer = l; _token_id=token_id;}
         ExprNode *parse(std::istream &str, SymbolExprNode **update ) {
             #ifdef DEBUG
-                std::cout << "SymbolParserObj: looking for: " << _token_id << "\n";
+                std::cout << "SymbolParserObj: looking for: " << tokenstr(_token_id) << "\n";
             #endif
             if (lexer->peek(str) == _token_id) {
                 return lexer->get(str, update);
@@ -252,7 +258,7 @@ public:
         _our_lexer = new Lexer(s);
 
         Define("func",  
-           Seq(Symbol(T_FUNCTION), Symbol(T_NAME),  Lookup("formal_arg_list"), Lookup("spec_type"), Opt(T_PRE, Lookup("predicate"), Opt(T_POST, Lookup("predicate")) , Lookup("block"))));
+           Seq(Symbol(T_FUNCTION), Symbol(T_NAME),  Lookup("formal_arg_list"), Lookup("spec_type"), Opt(T_PRE, Lookup("predicate")), Opt(T_POST, Lookup("predicate")) , Lookup("block")));
 
         Define("block", 
             Seq(Symbol(T_BEGIN), Lookup("decl_seq"),  Lookup("stmt_seq"), Symbol(T_END)));
@@ -297,9 +303,18 @@ public:
 
         Define("assignemnt",  Seq( Lookup("varlist"), Symbol('='), Lookup("exprlist")));
 
+        Define("stmt",
+           Or( 
+               Seq(Symbol(T_IF), Lookup("guardlist"), Symbol(T_FI)),
+               Seq(Symbol(T_DO), Lookup("guardlist"), Symbol(T_OD)),
+               Seq(Lookup("namelist"), Symbol('='), Lookup("predicate_list"))
+           ));
+
         Define("opt_invariant", Opt(T_INV, Lookup("predicate")) );
         Define("opt_bound", Opt(T_BOUND, Lookup("expression")) );
 
+        Define("predicate_list",
+               Seq(Lookup("predicate"), Opt(',',Lookup("predicate_list"))));
 
         Define("predicate",  
              Seq(Lookup("and_pred"), Or(
@@ -340,7 +355,7 @@ public:
                       Symbol(T_NUMBER),
                       Seq( Symbol(T_NAME), Or(
                             Seq( Symbol('['), Lookup("expression"), Symbol(']')),
-                            Seq( Symbol('('), Lookup("expression_list"), Symbol(')')),
+                            Seq( Symbol('('), Lookup("predicate_list"), Symbol(')')),
                             Seq( Symbol('.'), Lookup("primary")),
                             Empty()))));
         _top = Lookup("func");
@@ -353,7 +368,11 @@ public:
 
 void *
 dumper(Parser::SymbolExprNode *op, int nargs, void**pargs) {
-    std::cout <<  op->symbol << "\n";
+    if (op && op->symbol) {
+        std::cout <<  op->symbol << "\n";
+    } else {
+        std::cout << "(null)" << "\n";
+    }
 }
 
 std::map<const char *, Parser::ParserObj *> Parser::_parser_dict;
