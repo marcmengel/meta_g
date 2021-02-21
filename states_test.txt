@@ -1,5 +1,5 @@
 
-func fred( int: apple, float pear ) : float
+function fred( int: apple, float pear ) : float
 begin
 
 if

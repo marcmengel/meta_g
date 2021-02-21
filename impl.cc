@@ -4,6 +4,9 @@
 #include <string.h>
 #include "tokens.h"
 
+extern char yytext[];
+extern int gettoken(std::istream &);
+
 class Parser {
 
 public:
@@ -18,14 +21,14 @@ public:
 
     class ExprNode {
     public:
-       virtual void *walk( void *(*combiner)(ExprNode *op, int nargs, void**pargs))=0;
+       virtual void *walk( void *(*combiner)(SymbolExprNode *op, int nargs, void**pargs))=0;
     };
 
     class SymbolExprNode: public ExprNode {
     public:
        const char *symbol;
        int tokenid;
-       void *walk( void *(*combiner)(ExprNode *op, int nargs, void**pargs)) {
+       void *walk( void *(*combiner)(SymbolExprNode *op, int nargs, void**pargs)) {
           return((*combiner)(this, 0, 0));
        }
        // other stuff later as needed
@@ -36,7 +39,7 @@ public:
        SymbolExprNode *op;
        int nsubexp;
        ExprNode *subexp[10]; 
-       void *walk( void *(*combiner)(ExprNode *op, int nargs, void**pargs)) {
+       void *walk( void *(*combiner)(SymbolExprNode *op, int nargs, void**pargs)) {
           void *sres[10];
           for(int i = 0; i < nsubexp; i++) {
              sres[i] = subexp[i]->walk(combiner);
@@ -49,18 +52,29 @@ public:
        int _token;
     public:
 
+        Lexer(std::istream &s) {
+           _token = gettoken(s);
+        }
+        Lexer(const Lexer &s) {
+           _token = s._token;
+        }
+
         int peek(std::istream &s) {  // get token-id of upcoming token
             return _token;
         }
 
-        SymbolExprNode *get(std::istream &s, SymbolExprNode *update) {
+        SymbolExprNode *get(std::istream &s, SymbolExprNode **update) {
                                    // consume token, put in SymbolExprNode
-             extern char *yytext;
-             extern int gettoken();
+             #ifdef DEBUG
+                std::cout << "token: " << _token << ": " << yytext << "\n";
+             #endif
              SymbolExprNode *res = new SymbolExprNode();
              res->tokenid = _token;
              res->symbol = strdup(yytext);
-             _token = gettoken();
+             _token = gettoken(s);
+             if (update) {
+                 *update = res;
+             }
              return res;
         }
     };
@@ -68,7 +82,7 @@ public:
     class ParserObj {
     public:
         Lexer *lexer;
-        virtual ExprNode *parse(std::istream &str, SymbolExprNode **update );
+        virtual ExprNode *parse(std::istream &str, SymbolExprNode **update ) = 0;
     };
 
     class EmptyParserObj : public ParserObj {
@@ -81,9 +95,11 @@ public:
     public:
         SymbolParserObj(Lexer *l, int token_id){ lexer = l; _token_id=token_id;}
         ExprNode *parse(std::istream &str, SymbolExprNode **update ) {
+            #ifdef DEBUG
+                std::cout << "SymbolParserObj: looking for: " << _token_id << "\n";
+            #endif
             if (lexer->peek(str) == _token_id) {
-                SymbolExprNode *res = new SymbolExprNode();
-                return lexer->get(str, res);
+                return lexer->get(str, update);
             } else {
                 return 0;
             }
@@ -109,6 +125,11 @@ public:
         ExprNode *parse(std::istream &str, SymbolExprNode **update ) {
             extern void syntax_error(const char *);
             MultiExprNode *res = new MultiExprNode;
+             
+            #ifdef DEBUG
+            std::cout << "starting: SeqParseObj::parse\n";
+            #endif
+
             for(int i = 0; i < 10; i++ ) { 
                 if(subs[i]) {
                     res->subexp[i] = subs[i]->parse(str, update);
@@ -120,6 +141,9 @@ public:
                     }
                 }
             }
+            #ifdef DEBUG
+            std::cout << "ending: SeqParseObj::parse\n";
+            #endif
             return res;
         }
     };
@@ -143,14 +167,23 @@ public:
         }
         ExprNode *parse(std::istream &str, SymbolExprNode **update ) {
             ExprNode *res;
+            #ifdef DEBUG
+            std::cout << "starting: OrParseObj::parse\n";
+            #endif
             for(int i = 0; i < 10; i++ ) { 
                 if(subs[i]) {
                     res = subs[i]->parse(str, update);
                     if( res ) {
+                        #ifdef DEBUG
+                        std::cout << "leaving: OrParseObj::parse\n";
+                        #endif
                         return res;
                     }
                 }
             }
+            #ifdef DEBUG
+            std::cout << "leaving: OrParseObj::parse\n";
+            #endif
             return 0;
         }
     };
@@ -160,7 +193,14 @@ public:
         const char *_name;
         PendingLookup(const char *name) { _name = name; }
         ExprNode *parse(std::istream &str, SymbolExprNode **update ) {
-           return _parser_dict[_name]->parse(str,update);
+           #ifdef DEBUG
+           std::cout << "starting: " << _name << "\n";
+           #endif
+           ExprNode *res =  _parser_dict[_name]->parse(str,update);
+           #ifdef DEBUG
+           std::cout << "done: " << _name << "\n";
+           #endif
+           return res;
         }
     };
 
@@ -172,6 +212,9 @@ public:
 
     ParserObj *
     Lookup(const char *name) {
+       #ifdef DEBUG
+           return new PendingLookup(name);
+       #endif
        if (_parser_dict.find(name) != _parser_dict.end() ) {
            return  _parser_dict[name];
        } else {
@@ -183,9 +226,7 @@ public:
     Symbol(int token_id){    // match a regexp 
        ParserObj *res = new SymbolParserObj(_our_lexer, token_id);
        return res;
-    }
-
-    ParserObj *
+    } ParserObj *
     Or(ParserObj *p0, ParserObj *p1=0, ParserObj *p2=0, ParserObj *p3=0, ParserObj *p4=0, ParserObj *p5=0, ParserObj *p6=0, ParserObj *p7=0, ParserObj *p8=0, ParserObj *p9=0) {
         return new OrParserObj(_our_lexer, p0, p1, p2, p3, p4, p5, p6, p7, p8, p9);
     }
@@ -203,12 +244,12 @@ public:
 
     ParserObj *
     Opt(int p0, ParserObj *p1=0, ParserObj *p2=0, ParserObj *p3=0, ParserObj *p4=0, ParserObj *p5=0, ParserObj *p6=0, ParserObj *p7=0, ParserObj *p8=0, ParserObj *p9=0) {
-        return new SeqParserObj(_our_lexer, Or(Symbol(p0), p1, p2, p3, p4, p5, p6, p7, p8, p9),Empty());
+        return new OrParserObj(_our_lexer, Seq(Symbol(p0), p1, p2, p3, p4, p5, p6, p7, p8, p9),Empty());
     }
 
-    void build_parser() {
+    void build_parser(std::istream &s) {
 
-        _our_lexer = new Lexer();
+        _our_lexer = new Lexer(s);
 
         Define("func",  
            Seq(Symbol(T_FUNCTION), Symbol(T_NAME),  Lookup("formal_arg_list"), Lookup("spec_type"), Opt(T_PRE, Lookup("predicate"), Opt(T_POST, Lookup("predicate")) , Lookup("block"))));
@@ -216,10 +257,10 @@ public:
         Define("block", 
             Seq(Symbol(T_BEGIN), Lookup("decl_seq"),  Lookup("stmt_seq"), Symbol(T_END)));
 
-        Define("decl_seq" 
-            Or(Seq(Lookup("decl", decl_seq),Empty()));
+        Define("decl_seq",
+            Or(Seq(Lookup("decl"), Lookup("decl_seq"),Empty())));
 
-        Define("decl", Seq(Symbol(T_VAR), Lookup("name_list"), Symbol(":"), Lookup("type"), Symbol(';')));
+        Define("decl", Seq(Symbol(T_VAR), Lookup("name_list"), Symbol(':'), Lookup("type"), Symbol(';')));
 
         Define("spec_type", 
             Seq(Symbol(':') , Lookup("type")));
@@ -231,7 +272,7 @@ public:
             Seq(Lookup("formal"), Opt(',', Lookup("formal_list"))));
 
         Define("formal",  
-            Seq(Symbol(T_NAME), Lookup("spec_type")));
+            Seq(Symbol(T_NAME), Symbol(':') , Lookup("type")));
 
         Define("type",   
            Or(
@@ -311,16 +352,18 @@ public:
 };
 
 void *
-dumper(ExprNode *op, int nargs, void**pargs) {
-    std::cout <<  op << "\n";
+dumper(Parser::SymbolExprNode *op, int nargs, void**pargs) {
+    std::cout <<  op->symbol << "\n";
 }
+
+std::map<const char *, Parser::ParserObj *> Parser::_parser_dict;
 
 #ifdef UNITTEST
 main() {
-   ExperNode *res;
+   Parser::ExprNode *res;
    std::cout <<  "starting:\n";
-   p = Parser();
-   p.build_parser();
+   Parser p;
+   p.build_parser(std::cin);
    std::cout <<  "parse output:\n";
    res = p.parse(std::cin);
    std::cout <<  "expr dump:\n";

@@ -319,27 +319,26 @@ int yyline, yycol, yychar;
 
 void
 syntax_error(const char *msg){
-        std::cerr << "Syntax error at line " << yyline << " column " << yycol <<  ": " << msg << " at char '"<< (char)yychar << "' \\"<< std::oct <<  yychar << "\n";
+        std::cerr << "Syntax error at line " << yyline << " column " << yycol <<  ": " << msg << " at token " << yytext << " at char '"<< (char)yychar << "' \\"<< std::oct <<  yychar << "\n";
 }
 
 int
 gettoken(std::istream  &s) {
-    static int curline = 1;
-    static int curcol = 0;
     int curstate = 0;
     int curchar = 0;
     int c;
     int ns;
     c = s.get();
-    curcol++;
+    yycol++;
     while( c < 128 &&  isspace(c) ) {
        _debug && std::cout << "skipping whitespace :'" << (unsigned char)c << "'\n";
        if ('\n' == c) {
-          curline++;
-          curcol = 0;
+          _debug && std::cout << "currrent line: " << yyline << "\n";
+          yyline++;
+          yycol = 0;
        }
        c = s.get();
-       curcol++;
+       yycol++;
     }
     ns = nextstate(curstate, c);
     _debug && (c > 31 && c < 128) &&  std::cout << "char '" << (char)c << "' takes us to state " << ns << "\n";
@@ -347,7 +346,7 @@ gettoken(std::istream  &s) {
     while (ns != -1) {
         curstate = ns;
         yytext[curchar++] = c;
-        curcol++;
+        yycol++;
         c = s.get();
         ns = nextstate(curstate, c);
         _debug && std::cout << "char '" << (char)c << "' takes us to state " << ns << "\n";
@@ -359,12 +358,10 @@ gettoken(std::istream  &s) {
     //
     if (scanner_graph[curstate].final_sym != -1 ) {
         s.unget();
-        curcol--;
+        yycol--;
         yytext[curchar] = 0;
         return scanner_graph[curstate].final_sym;
     } else if (c != -1 ) {
-        yyline = curline;
-        yycol = curcol;
         yychar = c;
         syntax_error("unexpected character");
     }
