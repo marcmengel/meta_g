@@ -261,10 +261,10 @@ public:
            Seq(Symbol(T_FUNCTION), Symbol(T_NAME),  Lookup("formal_arg_list"), Lookup("spec_type"), Opt(T_PRE, Lookup("predicate")), Opt(T_POST, Lookup("predicate")) , Lookup("block")));
 
         Define("block", 
-            Seq(Symbol(T_BEGIN), Lookup("decl_seq"),  Lookup("stmt_seq"), Symbol(T_END)));
+            Seq(Symbol(T_BEGIN), Lookup("decl_seq"), Lookup("stmt_seq"), Symbol(T_END)));
 
         Define("decl_seq",
-            Or(Seq(Lookup("decl"), Lookup("decl_seq"),Empty())));
+            Or(Seq(Lookup("decl"), Lookup("decl_seq")),Empty()));
 
         Define("decl", Seq(Symbol(T_VAR), Lookup("name_list"), Symbol(':'), Lookup("type"), Symbol(';')));
 
@@ -333,6 +333,8 @@ public:
                                Seq( Symbol(T_NEQ), Lookup("comp_pred")),
                                Seq( Symbol(T_GEQ), Lookup("comp_pred")),
                                Seq( Symbol(T_LEQ), Lookup("comp_pred")),
+                               Seq( Symbol('<'), Lookup("comp_pred")),
+                               Seq( Symbol('>'), Lookup("comp_pred")),
                                Empty())));
 
         Define("expression", Seq(Lookup("term"), Or(

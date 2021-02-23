@@ -319,7 +319,10 @@ int yyline, yycol, yychar;
 
 void
 syntax_error(const char *msg){
-        std::cerr << "Syntax error at line " << yyline << " column " << yycol <<  ": " << msg << " at token " << yytext << " at char '"<< (char)yychar << "' \\"<< std::oct <<  yychar << "\n";
+    std::cout.flush();
+    std::cerr.flush();
+    std::cerr << "Syntax error at line " << yyline << " column " << yycol <<  ": " << msg << " at token " << yytext << " at char '"<< (char)yychar << "' \\"<< std::oct <<  yychar << "\n";
+    std::cerr.flush();
 }
 
 int
