@@ -29,6 +29,9 @@ public:
        const char *symbol;
        int tokenid;
        void *walk( void *(*combiner)(SymbolExprNode *op, int nargs, void**pargs)) {
+          #ifdef DEBUG
+          std::cout << "SymbolExprWalk:" << int(this) << "\n";
+          #endif
           return((*combiner)(this, 0, 0));
        }
        // other stuff later as needed
@@ -41,6 +44,9 @@ public:
        ExprNode *subexp[10]; 
        void *walk( void *(*combiner)(SymbolExprNode *op, int nargs, void**pargs)) {
           void *sres[10];
+          #ifdef DEBUG
+          std::cout << "MultiExprWalk:" << int(this) << "\n";
+          #endif
           for(int i = 0; i < nsubexp; i++) {
              sres[i] = subexp[i]->walk(combiner);
           }
@@ -148,6 +154,12 @@ public:
                 }
             }
             #ifdef DEBUG
+            std::cout << "constructed: " << int(res) << " {" << res->op << ", " 
+                      << int(subs[0]) << ","
+                      << int(subs[1])<< ","
+                      << int(subs[2]) << ","
+                      << int(subs[3]) << ","
+                      << int(subs[4]) << "\n";
             std::cout << "ending: SeqParseObj::parse\n";
             #endif
             return res;
@@ -188,9 +200,9 @@ public:
                 }
             }
             #ifdef DEBUG
-            std::cout << "leaving: OrParseObj::parse\n";
+            std::cout << "leaving: OrParseObj::parse returning: " << int(res)<< " \n";
             #endif
-            return 0;
+            return res;
         }
     };
 
@@ -199,12 +211,13 @@ public:
         const char *_name;
         PendingLookup(const char *name) { _name = name; }
         ExprNode *parse(std::istream &str, SymbolExprNode **update ) {
+           ExprNode *res;
            #ifdef DEBUG
            std::cout << "starting: " << _name << "\n";
            #endif
-           ExprNode *res =  _parser_dict[_name]->parse(str,update);
+           res =  _parser_dict[_name]->parse(str,update);
            #ifdef DEBUG
-           std::cout << "done: " << _name << "\n";
+           std::cout << "done: " << _name << " returning " << int(res) << "\n";
            #endif
            return res;
         }
@@ -301,14 +314,14 @@ public:
 
         Define("guard",  Seq( Lookup("predicate"), Symbol(T_ARROW), Lookup("stmt_seq")));
 
-        Define("assignemnt",  Seq( Lookup("varlist"), Symbol('='), Lookup("exprlist")));
-
         Define("stmt",
            Or( 
                Seq(Symbol(T_IF), Lookup("guardlist"), Symbol(T_FI)),
                Seq(Symbol(T_DO), Lookup("guardlist"), Symbol(T_OD)),
                Seq(Lookup("namelist"), Symbol('='), Lookup("predicate_list"))
            ));
+
+        Define("namelist", Seq(Symbol(T_NAME), Opt(',',Lookup("namelist"))));
 
         Define("opt_invariant", Opt(T_INV, Lookup("predicate")) );
         Define("opt_bound", Opt(T_BOUND, Lookup("expression")) );
@@ -373,7 +386,7 @@ dumper(Parser::SymbolExprNode *op, int nargs, void**pargs) {
     if (op && op->symbol) {
         std::cout <<  op->symbol << "\n";
     } else {
-        std::cout << "(null)" << "\n";
+        std::cout << "node " << op << "no operator?"  << "\n";
     }
 }
 
