@@ -30,7 +30,7 @@ public:
        int tokenid;
        void *walk( void *(*combiner)(SymbolExprNode *op, int nargs, void**pargs)) {
           #ifdef DEBUG
-          std::cout << "SymbolExprWalk:" << int(this) << "\n";
+          std::cout << "SymbolExprWalk:" << (long int)(this) << "\n";
           #endif
           return((*combiner)(this, 0, 0));
        }
@@ -42,10 +42,11 @@ public:
        SymbolExprNode *op;
        int nsubexp;
        ExprNode *subexp[10]; 
+       MultExprNode() { nsubexp = 0; op = 0; for(int i=0; i< 10; i++){subexp[i]=0;}}
        void *walk( void *(*combiner)(SymbolExprNode *op, int nargs, void**pargs)) {
           void *sres[10];
           #ifdef DEBUG
-          std::cout << "MultiExprWalk:" << int(this) << "\n";
+          std::cout << "MultiExprWalk:" << (long int)(this) << "\n";
           #endif
           for(int i = 0; i < nsubexp; i++) {
              sres[i] = subexp[i]->walk(combiner);
@@ -56,13 +57,16 @@ public:
 
     class Lexer {
        int _token;
+       char _toktxt[255];
     public:
 
         Lexer(std::istream &s) {
            _token = gettoken(s);
+           strcpy(_toktxt, yytext);
         }
         Lexer(const Lexer &s) {
            _token = s._token;
+           strcpy(_toktxt, s._toktxt);
         }
 
         int peek(std::istream &s) {  // get token-id of upcoming token
@@ -71,16 +75,21 @@ public:
 
         SymbolExprNode *get(std::istream &s, SymbolExprNode **update) {
                                    // consume token, put in SymbolExprNode
-             #ifdef DEBUG
-                std::cout << "token: " << _token << ": " << yytext << "\n";
-             #endif
              SymbolExprNode *res = new SymbolExprNode();
              res->tokenid = _token;
-             res->symbol = strdup(yytext);
+             res->symbol = strdup(_toktxt);
              _token = gettoken(s);
-             if (update) {
+             strcpy(_toktxt, yytext);
+             // update the operator in an a parent node if it is not set
+             if (update && !*update) {
+                 #ifdef DEBUG
+                    std::cout << "updating operator:\n";
+                 #endif
                  *update = res;
              }
+             #ifdef DEBUG
+                std::cout << "constructed SymbolExprNode: "<< (long int)res << "{ " << res->tokenid << ": '" << res->symbol << "' }\n";
+             #endif
              return res;
         }
     };
@@ -95,11 +104,12 @@ public:
         
     public:
         ExprNode *parse(std::istream &str, SymbolExprNode **update ) { 
+           // Empty does *not* set the op in **update
            static SymbolExprNode empty;
            empty.symbol = "";
            empty.tokenid = -1;
            return &empty; 
-        }
+        } 
     };
 
     class SymbolParserObj : public ParserObj {
@@ -107,6 +117,7 @@ public:
     public:
         SymbolParserObj(Lexer *l, int token_id){ lexer = l; _token_id=token_id;}
         ExprNode *parse(std::istream &str, SymbolExprNode **update ) {
+            // expects lexer->get to set *update if it is not set.
             #ifdef DEBUG
                 std::cout << "SymbolParserObj: looking for: " << tokenstr(_token_id) << "\n";
             #endif
@@ -144,22 +155,27 @@ public:
 
             for(int i = 0; i < 10; i++ ) { 
                 if(subs[i]) {
-                    res->subexp[i] = subs[i]->parse(str, update);
+                    res->nsubexp++;
+                    // have each subexpression try to update our operator
+                    res->subexp[i] = subs[i]->parse(str, &(res->op));
                     if (res->subexp[i] == 0) {
                         if ( i > 0 ) {
                            syntax_error("unexpected symbol");
                         }
+                        #ifdef DEBUG
+                          std::cout << "ending: SeqParseObj::parse: no match\n";
+                        #endif
                         return 0;
                     }
                 }
             }
             #ifdef DEBUG
-            std::cout << "constructed: " << int(res) << " {" << res->op << ", " 
-                      << int(subs[0]) << ","
-                      << int(subs[1])<< ","
-                      << int(subs[2]) << ","
-                      << int(subs[3]) << ","
-                      << int(subs[4]) << "\n";
+            std::cout << "constructed: MultiExprNode " << (long int)(res) << " {" << (long int)(res->op) << ": " 
+                      << (long int)(subs[0]) << ","
+                      << (long int)(subs[1])<< ","
+                      << (long int)(subs[2]) << ","
+                      << (long int)(subs[3]) << ","
+                      << (long int)(subs[4]) << "}\n";
             std::cout << "ending: SeqParseObj::parse\n";
             #endif
             return res;
@@ -190,12 +206,18 @@ public:
             #endif
             for(int i = 0; i < 10; i++ ) { 
                 if(subs[i]) {
+                    // which ever subexpression matches sets the
+                    // operator of our parent.
                     res = subs[i]->parse(str, update);
                     if( res ) {
                         #ifdef DEBUG
                         std::cout << "leaving: OrParseObj::parse\n";
                         #endif
                         return res;
+                    } else {
+                        // if the subparser failed, clear the operator
+                        // so the next subparser sets it
+                        *update = 0;
                     }
                 }
             }
@@ -384,10 +406,14 @@ public:
 void *
 dumper(Parser::SymbolExprNode *op, int nargs, void**pargs) {
     if (op && op->symbol) {
-        std::cout <<  op->symbol << "\n";
+        std::cout << "node " << op->symbol;
     } else {
-        std::cout << "node " << op << "no operator?"  << "\n";
+        std::cout << "node " << op << "(no op?)";
     }
+    for(int i = 0; i < nargs; i++) {
+        std::cout << (long int)pargs[i];
+    }
+    std::cout << "\n";
 }
 
 std::map<const char *, Parser::ParserObj *> Parser::_parser_dict;
