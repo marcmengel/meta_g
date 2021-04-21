@@ -21,17 +21,18 @@ public:
 
     class ExprNode {
     public:
-       virtual void *walk( void *(*combiner)(SymbolExprNode *op, int nargs, void**pargs))=0;
+       const char *element;
+       virtual void *walk( void *(*combiner)(SymbolExprNode *op, int nargs, void**pargs), bool parenflag)=0;
     };
 
     class SymbolExprNode: public ExprNode {
     public:
        const char *symbol;
        int tokenid;
-       void *walk( void *(*combiner)(SymbolExprNode *op, int nargs, void**pargs)) {
-          #ifdef DEBUG
-          std::cout << "SymbolExprWalk:" << (long int)(this) << "\n";
-          #endif
+       void *walk( void *(*combiner)(SymbolExprNode *op, int nargs, void**pargs), bool parenflag) {
+          //#ifdef DEBUG
+          //std::cout << "SymbolExprWalk:" << (long int)(this) << "\n";
+          //#endif
           return((*combiner)(this, 0, 0));
        }
        // other stuff later as needed
@@ -42,15 +43,24 @@ public:
        SymbolExprNode *op;
        int nsubexp;
        ExprNode *subexp[10]; 
-       MultExprNode() { nsubexp = 0; op = 0; for(int i=0; i< 10; i++){subexp[i]=0;}}
-       void *walk( void *(*combiner)(SymbolExprNode *op, int nargs, void**pargs)) {
+       MultiExprNode() { nsubexp = 0; op = 0; for(int i=0; i< 10; i++){subexp[i]=0;}}
+       void *walk( void *(*combiner)(SymbolExprNode *op, int nargs, void**pargs), bool parenflag) {
           void *sres[10];
-          #ifdef DEBUG
-          std::cout << "MultiExprWalk:" << (long int)(this) << "\n";
-          #endif
-          for(int i = 0; i < nsubexp; i++) {
-             sres[i] = subexp[i]->walk(combiner);
+          //#ifdef DEBUG
+          //std::cout << "MultiExprWalk: start: " << (long int)(this) << "\n";
+          //#endif
+          if (parenflag) {
+             std::cout << "[";
           }
+          for(int i = 0; i < nsubexp; i++) {
+             sres[i] = subexp[i]->walk(combiner, parenflag);
+          }
+          if (parenflag) {
+             std::cout << "]";
+          }
+          //#ifdef DEBUG
+          //std::cout << "MultiExprWalk: end: " << (long int)(this) << "\n";
+          //#endif
           return (*combiner)(op, nsubexp, sres);
        }
     };
@@ -73,9 +83,10 @@ public:
             return _token;
         }
 
-        SymbolExprNode *get(std::istream &s, SymbolExprNode **update) {
+        ExprNode *get(std::istream &s, SymbolExprNode **update) {
                                    // consume token, put in SymbolExprNode
              SymbolExprNode *res = new SymbolExprNode();
+             ExprNode *res2 = res;
              res->tokenid = _token;
              res->symbol = strdup(_toktxt);
              _token = gettoken(s);
@@ -88,22 +99,22 @@ public:
                  *update = res;
              }
              #ifdef DEBUG
-                std::cout << "constructed SymbolExprNode: "<< (long int)res << "{ " << res->tokenid << ": '" << res->symbol << "' }\n";
+                std::cout << "constructed SymbolExprNode: "<< (long int)res2 << "{ " << res->tokenid << ": '" << res->symbol << "' }\n";
              #endif
-             return res;
+             return res2;
         }
     };
 
     class ParserObj {
     public:
         Lexer *lexer;
-        virtual ExprNode *parse(std::istream &str, SymbolExprNode **update ) = 0;
+        virtual ExprNode *parse(std::istream &str, SymbolExprNode **update , const char *element) = 0;
     };
 
     class EmptyParserObj : public ParserObj {
         
     public:
-        ExprNode *parse(std::istream &str, SymbolExprNode **update ) { 
+        ExprNode *parse(std::istream &str, SymbolExprNode **update, const char *element ) { 
            // Empty does *not* set the op in **update
            static SymbolExprNode empty;
            empty.symbol = "";
@@ -116,13 +127,16 @@ public:
       int _token_id;
     public:
         SymbolParserObj(Lexer *l, int token_id){ lexer = l; _token_id=token_id;}
-        ExprNode *parse(std::istream &str, SymbolExprNode **update ) {
+        ExprNode *parse(std::istream &str, SymbolExprNode **update, const char *element ) {
+            ExprNode *res;
             // expects lexer->get to set *update if it is not set.
             #ifdef DEBUG
                 std::cout << "SymbolParserObj: looking for: " << tokenstr(_token_id) << "\n";
             #endif
             if (lexer->peek(str) == _token_id) {
-                return lexer->get(str, update);
+                res = lexer->get(str, update);
+                res->element = element;
+                return res;
             } else {
                 return 0;
             }
@@ -145,9 +159,10 @@ public:
           subs[8] = p8;
           subs[9] = p9;
         }
-        ExprNode *parse(std::istream &str, SymbolExprNode **update ) {
+        ExprNode *parse(std::istream &str, SymbolExprNode **update, const char *element ) {
             extern void syntax_error(const char *);
             MultiExprNode *res = new MultiExprNode;
+            ExprNode *res2 = res;
              
             #ifdef DEBUG
             std::cout << "starting: SeqParseObj::parse\n";
@@ -157,7 +172,7 @@ public:
                 if(subs[i]) {
                     res->nsubexp++;
                     // have each subexpression try to update our operator
-                    res->subexp[i] = subs[i]->parse(str, &(res->op));
+                    res->subexp[i] = subs[i]->parse(str, &(res->op),element);
                     if (res->subexp[i] == 0) {
                         if ( i > 0 ) {
                            syntax_error("unexpected symbol");
@@ -169,8 +184,9 @@ public:
                     }
                 }
             }
+            res->element = element;
             #ifdef DEBUG
-            std::cout << "constructed: MultiExprNode " << (long int)(res) << " {" << (long int)(res->op) << ": " 
+            std::cout << "constructed: MultiExprNode " << (long int)(res2) << " {" << (long int)(res->op) << ": " 
                       << (long int)(subs[0]) << ","
                       << (long int)(subs[1])<< ","
                       << (long int)(subs[2]) << ","
@@ -178,7 +194,7 @@ public:
                       << (long int)(subs[4]) << "}\n";
             std::cout << "ending: SeqParseObj::parse\n";
             #endif
-            return res;
+            return res2;
         }
     };
 
@@ -199,7 +215,7 @@ public:
           subs[8] = p8;
           subs[9] = p9;
         }
-        ExprNode *parse(std::istream &str, SymbolExprNode **update ) {
+        ExprNode *parse(std::istream &str, SymbolExprNode **update, const char *element ) {
             ExprNode *res;
             #ifdef DEBUG
             std::cout << "starting: OrParseObj::parse\n";
@@ -208,21 +224,24 @@ public:
                 if(subs[i]) {
                     // which ever subexpression matches sets the
                     // operator of our parent.
-                    res = subs[i]->parse(str, update);
+                    res = subs[i]->parse(str, update,element);
                     if( res ) {
                         #ifdef DEBUG
                         std::cout << "leaving: OrParseObj::parse\n";
                         #endif
                         return res;
-                    } else {
+                    } else if ( update != 0) {
                         // if the subparser failed, clear the operator
                         // so the next subparser sets it
                         *update = 0;
                     }
                 }
             }
+            if (res) {
+                res->element = element;
+            }
             #ifdef DEBUG
-            std::cout << "leaving: OrParseObj::parse returning: " << int(res)<< " \n";
+            std::cout << "leaving: OrParseObj::parse returning: " << (long int)(res)<< " \n";
             #endif
             return res;
         }
@@ -232,12 +251,12 @@ public:
     public:
         const char *_name;
         PendingLookup(const char *name) { _name = name; }
-        ExprNode *parse(std::istream &str, SymbolExprNode **update ) {
+        ExprNode *parse(std::istream &str, SymbolExprNode **update, const char *element ) {
            ExprNode *res;
            #ifdef DEBUG
            std::cout << "starting: " << _name << "\n";
            #endif
-           res =  _parser_dict[_name]->parse(str,update);
+           res =  _parser_dict[_name]->parse(str,update, _name);
            #ifdef DEBUG
            std::cout << "done: " << _name << " returning " << int(res) << "\n";
            #endif
@@ -292,14 +311,19 @@ public:
 
         _our_lexer = new Lexer(s);
 
+        Define("decl_seq",
+            Or(
+               Seq(Lookup("decl"), Lookup("decl_seq")),
+               Seq(Lookup("func"), Lookup("decl_seq")),
+               Seq(Lookup("classdef"), Lookup("decl_seq")),
+               Empty()));
+
         Define("func",  
            Seq(Symbol(T_FUNCTION), Symbol(T_NAME),  Lookup("formal_arg_list"), Lookup("spec_type"), Opt(T_PRE, Lookup("predicate")), Opt(T_POST, Lookup("predicate")) , Lookup("block")));
 
         Define("block", 
             Seq(Symbol(T_BEGIN), Lookup("decl_seq"), Lookup("stmt_seq"), Symbol(T_END)));
 
-        Define("decl_seq",
-            Or(Seq(Lookup("decl"), Lookup("decl_seq")),Empty()));
 
         Define("decl", Seq(Symbol(T_VAR), Lookup("name_list"), Symbol(':'), Lookup("type"), Symbol(';')));
 
@@ -318,8 +342,11 @@ public:
         Define("type",   
            Or(
             Seq(Symbol(T_ARRAY), Symbol('['), Lookup("expression"), Symbol(']'), Lookup("type")),
-            Seq(Symbol(T_CLASS), Symbol('['), Lookup("expression"), Symbol(']'), Lookup("type")),
+            Lookup("classdef"),
             Symbol(T_NAME)));
+
+        Define("classdef", 
+            Seq(Symbol(T_CLASS), Symbol(T_NAME), Opt(Symbol('T_BEGIN'), Lookup("decl_seq"), Symbol('T_END'))));
 
         Define("statement",  
             Or(
@@ -395,25 +422,24 @@ public:
                             Seq( Symbol('('), Lookup("predicate_list"), Symbol(')')),
                             Seq( Symbol('.'), Lookup("primary")),
                             Empty()))));
-        _top = Lookup("func");
+        _top = Lookup("decl_seq");
     }
     
     ExprNode *parse(std::istream &str) {
-        return _top->parse(str, 0);
+        return _top->parse(str, 0, "top");
     }
 };
 
 void *
 dumper(Parser::SymbolExprNode *op, int nargs, void**pargs) {
     if (op && op->symbol) {
-        std::cout << "node " << op->symbol;
-    } else {
-        std::cout << "node " << op << "(no op?)";
+        std::cout << op->symbol;
     }
-    for(int i = 0; i < nargs; i++) {
-        std::cout << (long int)pargs[i];
-    }
-    std::cout << "\n";
+    //for(int i = 0; i < nargs; i++) {
+    //    std::cout << (long int)pargs[i] << ", ";
+    //}
+    //std::cout << "\n";
+    return 0;
 }
 
 std::map<const char *, Parser::ParserObj *> Parser::_parser_dict;
@@ -427,7 +453,7 @@ main() {
    std::cout <<  "parse output:\n";
    res = p.parse(std::cin);
    std::cout <<  "expr dump:\n";
-   res->walk(dumper);
+   res->walk(dumper, true);
 }
 
 #endif
