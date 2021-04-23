@@ -22,18 +22,18 @@ public:
     class ExprNode {
     public:
        const char *element;
-       virtual void *walk( void *(*combiner)(SymbolExprNode *op, int nargs, void**pargs))=0;
+       virtual void *walk( void *(*combiner)(SymbolExprNode *op, char *element, int nargs, void**pargs))=0;
     };
 
     class SymbolExprNode: public ExprNode {
     public:
        const char *symbol;
        int tokenid;
-       void *walk( void *(*combiner)(SymbolExprNode *op, int nargs, void**pargs)) {
+       void *walk( void *(*combiner)(SymbolExprNode *op, char *element, int nargs, void**pargs)) {
           //#ifdef DEBUG
           //std::cout << "SymbolExprWalk:" << (long int)(this) << "\n";
           //#endif
-          return((*combiner)(this, 0, 0));
+          return((*combiner)(this, "",  0, 0));
        }
        // other stuff later as needed
     };
@@ -44,19 +44,20 @@ public:
        int nsubexp;
        ExprNode *subexp[10]; 
        MultiExprNode() { nsubexp = 0; op = 0; for(int i=0; i< 10; i++){subexp[i]=0;}}
-       void *walk( void *(*combiner)(SymbolExprNode *op, int nargs, void**pargs)) {
+       void *walk( void *(*combiner)(SymbolExprNode *op, char *element, int nargs, void**pargs)) {
           void *sres[10];
           //#ifdef DEBUG
           //std::cout << "MultiExprWalk: start: " << (long int)(this) << "\n";
           //#endif
-          (*combiner)(op, -1,0);
+          (*combiner)(op, element,  -1,0);
           for(int i = 0; i < nsubexp; i++) {
              sres[i] = subexp[i]->walk(combiner);
           }
+          (*combiner)(op, element,  -2,0);
           //#ifdef DEBUG
           //std::cout << "MultiExprWalk: end: " << (long int)(this) << "\n";
           //#endif
-          return (*combiner)(op, nsubexp, sres);
+          return (*combiner)(op, element, nsubexp, sres);
        }
     };
 
@@ -180,6 +181,10 @@ public:
                 }
             }
             res->element = element;
+            if (res->nsubexp == 1) {
+                res2 = res->subexp[1];
+                delete res;
+            }
             #ifdef DEBUG
             std::cout << "constructed: MultiExprNode " << (long int)(res2) << " {" << (long int)(res->op) << ": " 
                       << (long int)(subs[0]) << ","
@@ -422,19 +427,24 @@ public:
 };
 
 void *
-dumper(Parser::SymbolExprNode *op, int nargs, void**pargs) {
+dumper(Parser::SymbolExprNode *op, char *element, int nargs, void**pargs) {
     if (nargs == -1) {
        std::cout << "[" ;
+       std::cout << "('" ;
        if (op) {
-          std::cout << "('" << op->symbol << "')";
+          std::cout << op;
        }
+       std::cout << "':'" ;
+       if (element) {
+          std::cout << element;
+       }
+       std::cout << "')";
+    } else if (nargs == -2) {
+       std::cout << "]";
     } else {
         if (op && op->symbol) {
-            std::cout << op->symbol;
+            std::cout << op->symbol << " ";
         }
-        if (nargs == 0) {
-           std::cout << "]";
-        } 
     }
     return 0;
 }
