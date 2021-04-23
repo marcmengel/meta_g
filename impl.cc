@@ -22,14 +22,14 @@ public:
     class ExprNode {
     public:
        const char *element;
-       virtual void *walk( void *(*combiner)(SymbolExprNode *op, int nargs, void**pargs), bool parenflag)=0;
+       virtual void *walk( void *(*combiner)(SymbolExprNode *op, int nargs, void**pargs))=0;
     };
 
     class SymbolExprNode: public ExprNode {
     public:
        const char *symbol;
        int tokenid;
-       void *walk( void *(*combiner)(SymbolExprNode *op, int nargs, void**pargs), bool parenflag) {
+       void *walk( void *(*combiner)(SymbolExprNode *op, int nargs, void**pargs)) {
           //#ifdef DEBUG
           //std::cout << "SymbolExprWalk:" << (long int)(this) << "\n";
           //#endif
@@ -44,19 +44,14 @@ public:
        int nsubexp;
        ExprNode *subexp[10]; 
        MultiExprNode() { nsubexp = 0; op = 0; for(int i=0; i< 10; i++){subexp[i]=0;}}
-       void *walk( void *(*combiner)(SymbolExprNode *op, int nargs, void**pargs), bool parenflag) {
+       void *walk( void *(*combiner)(SymbolExprNode *op, int nargs, void**pargs)) {
           void *sres[10];
           //#ifdef DEBUG
           //std::cout << "MultiExprWalk: start: " << (long int)(this) << "\n";
           //#endif
-          if (parenflag) {
-             std::cout << "[";
-          }
+          (*combiner)(op, -1,0);
           for(int i = 0; i < nsubexp; i++) {
-             sres[i] = subexp[i]->walk(combiner, parenflag);
-          }
-          if (parenflag) {
-             std::cout << "]";
+             sres[i] = subexp[i]->walk(combiner);
           }
           //#ifdef DEBUG
           //std::cout << "MultiExprWalk: end: " << (long int)(this) << "\n";
@@ -94,7 +89,7 @@ public:
              // update the operator in an a parent node if it is not set
              if (update && !*update) {
                  #ifdef DEBUG
-                    std::cout << "updating operator:\n";
+                    std::cout << "updating operator:"<< res->symbol << "\n";
                  #endif
                  *update = res;
              }
@@ -230,11 +225,7 @@ public:
                         std::cout << "leaving: OrParseObj::parse\n";
                         #endif
                         return res;
-                    } else if ( update != 0) {
-                        // if the subparser failed, clear the operator
-                        // so the next subparser sets it
-                        *update = 0;
-                    }
+                    } 
                 }
             }
             if (res) {
@@ -432,13 +423,19 @@ public:
 
 void *
 dumper(Parser::SymbolExprNode *op, int nargs, void**pargs) {
-    if (op && op->symbol) {
-        std::cout << op->symbol;
+    if (nargs == -1) {
+       std::cout << "[" ;
+       if (op) {
+          std::cout << "('" << op->symbol << "')";
+       }
+    } else {
+        if (op && op->symbol) {
+            std::cout << op->symbol;
+        }
+        if (nargs == 0) {
+           std::cout << "]";
+        } 
     }
-    //for(int i = 0; i < nargs; i++) {
-    //    std::cout << (long int)pargs[i] << ", ";
-    //}
-    //std::cout << "\n";
     return 0;
 }
 
@@ -453,7 +450,7 @@ main() {
    std::cout <<  "parse output:\n";
    res = p.parse(std::cin);
    std::cout <<  "expr dump:\n";
-   res->walk(dumper, true);
+   res->walk(dumper);
 }
 
 #endif
