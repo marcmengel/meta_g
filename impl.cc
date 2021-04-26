@@ -30,9 +30,6 @@ public:
        const char *symbol;
        int tokenid;
        void *walk( void *(*combiner)(SymbolExprNode *op, char *element, int nargs, void**pargs)) {
-          //#ifdef DEBUG
-          //std::cout << "SymbolExprWalk:" << (long int)(this) << "\n";
-          //#endif
           return((*combiner)(this, "",  0, 0));
        }
        // other stuff later as needed
@@ -46,18 +43,14 @@ public:
        MultiExprNode() { nsubexp = 0; op = 0; for(int i=0; i< 10; i++){subexp[i]=0;}}
        void *walk( void *(*combiner)(SymbolExprNode *op, char *element, int nargs, void**pargs)) {
           void *sres[10];
-          //#ifdef DEBUG
-          //std::cout << "MultiExprWalk: start: " << (long int)(this) << "\n";
-          //#endif
+          void *res;
           (*combiner)(op, element,  -1,0);
           for(int i = 0; i < nsubexp; i++) {
              sres[i] = subexp[i]->walk(combiner);
           }
+          res = (*combiner)(op, element, nsubexp, sres);
           (*combiner)(op, element,  -2,0);
-          //#ifdef DEBUG
-          //std::cout << "MultiExprWalk: end: " << (long int)(this) << "\n";
-          //#endif
-          return (*combiner)(op, element, nsubexp, sres);
+          return res;
        }
     };
 
@@ -108,16 +101,18 @@ public:
     };
 
     class EmptyParserObj : public ParserObj {
-        
     public:
+        static SymbolExprNode empty;
+
         ExprNode *parse(std::istream &str, SymbolExprNode **update, const char *element ) { 
            // Empty does *not* set the op in **update
-           static SymbolExprNode empty;
-           empty.symbol = "";
-           empty.tokenid = -1;
+           
+           EmptyParserObj::empty.symbol = "__empty__";
+           EmptyParserObj::empty.tokenid = -1;
            return &empty; 
         } 
     };
+
 
     class SymbolParserObj : public ParserObj {
       int _token_id;
@@ -181,10 +176,10 @@ public:
                 }
             }
             res->element = element;
-            if (res->nsubexp == 1) {
-                res2 = res->subexp[1];
+            if (res->nsubexp == 2 && res->subexp[1] == &EmptyParserObj::empty) {
+                res2 = res->subexp[0];
                 delete res;
-            }
+            } else {
             #ifdef DEBUG
             std::cout << "constructed: MultiExprNode " << (long int)(res2) << " {" << (long int)(res->op) << ": " 
                       << (long int)(subs[0]) << ","
@@ -194,6 +189,8 @@ public:
                       << (long int)(subs[4]) << "}\n";
             std::cout << "ending: SeqParseObj::parse\n";
             #endif
+               ;
+            }
             return res2;
         }
     };
@@ -428,28 +425,44 @@ public:
 
 void *
 dumper(Parser::SymbolExprNode *op, char *element, int nargs, void**pargs) {
+    static int indent = 0;
+
+    if (nargs == -2) {
+       indent -= 2;
+    }
+    for( int i = 0; i < indent; i++) {
+        std::cout << ' ';
+    }
     if (nargs == -1) {
        std::cout << "[" ;
        std::cout << "('" ;
-       if (op) {
-          std::cout << op;
+       if (op && op->symbol) {
+          std::cout << op->symbol;
+       } else {
+          std::cout << "(null)";
        }
        std::cout << "':'" ;
        if (element) {
           std::cout << element;
        }
-       std::cout << "')";
+       std::cout << "')\n";
+       indent += 2;
     } else if (nargs == -2) {
-       std::cout << "]";
-    } else {
+       std::cout << "]\n";
+    } else if (nargs == 0) {
         if (op && op->symbol) {
-            std::cout << op->symbol << " ";
+            std::cout << op->symbol << "\n";
+        } else {
+          std::cout << "(null)";
         }
+    } else {
+       std::cout << "#" << nargs << "\n";
     }
     return 0;
 }
 
 std::map<const char *, Parser::ParserObj *> Parser::_parser_dict;
+static Parser::SymbolExprNode Parser::EmptyParserObj::empty;
 
 #ifdef UNITTEST
 main() {
