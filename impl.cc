@@ -461,8 +461,74 @@ dumper(Parser::SymbolExprNode *op, char *element, int nargs, void**pargs) {
     return 0;
 }
 
+void *
+meta_dumper(Parser::SymbolExprNode *op, char *element, int nargs, void**pargs) {
+    if ( op && op->tokenid == -1) {
+        return;
+    }
+    if (nargs == 0) {
+        if (op && op->symbol) {
+            std::cout << op->symbol;
+            if ( op->tokenid ==  ';' || op->tokenid == T_BEGIN) {
+                std::cout << '\n';
+            } else {
+                std::cout << ' ';
+            }
+        }
+    }
+    return 0;
+}
+
+
+void *
+c_dumper(Parser::SymbolExprNode *op, char *element, int nargs, void**pargs) {
+    if ( op && op->tokenid == -1) {
+        return;
+    }
+    if (nargs == 0) {
+        if (op && op->symbol) {
+            switch(op->tokenid) {
+            case T_END:
+                std::cout << "\n}\n";
+                break;
+            case T_BEGIN:
+                std::cout << "{\n";
+                break;
+            case T_IF:
+                std::cout << "if( ";
+                break;
+            case T_FI:
+                std::cout << "\n} else { assert(0); }\n";
+                break;
+            case T_DO:
+                std::cout << "while(1) if( ";
+                break;
+            case T_ARROW:
+                std::cout << ") {\n";
+                break;
+            case T_ENDGUARD:
+                std::cout << "\n} else if (";
+                break;
+            case T_OD:
+                std::cout << "\n} else { break; }\n";
+                break;
+            default:
+                std::cout << op->symbol;
+                break;
+            }
+            if ( op->tokenid ==  ';' || op->tokenid == T_BEGIN) {
+                std::cout << '\n';
+            } else {
+                std::cout << ' ';
+            }
+        }
+    }
+    return 0;
+}
+
 std::map<const char *, Parser::ParserObj *> Parser::_parser_dict;
 static Parser::SymbolExprNode Parser::EmptyParserObj::empty;
+
 
 #ifdef UNITTEST
 main() {
@@ -472,8 +538,12 @@ main() {
    p.build_parser(std::cin);
    std::cout <<  "parse output:\n";
    res = p.parse(std::cin);
-   std::cout <<  "expr dump:\n";
+   std::cout <<  "debug dump:\n";
    res->walk(dumper);
+   std::cout <<  "source dump:\n";
+   res->walk(meta_dumper);
+   std::cout <<  "C dump:\n";
+   res->walk(c_dumper);
 }
 
 #endif
