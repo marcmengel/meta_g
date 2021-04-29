@@ -482,12 +482,40 @@ meta_dumper(Parser::SymbolExprNode *op, char *element, int nargs, void**pargs) {
 
 void *
 c_dumper(Parser::SymbolExprNode *op, char *element, int nargs, void**pargs) {
-    if ( op && op->tokenid == -1) {
-        return;
+    static bool in_declaration = false;
+    static bool in_formals = false;
+
+    if ( nargs == 0 && op && op->tokenid == -1) {
+        return 0;
+    }
+    if (nargs == 0 && 0 == strcmp(element,"formal") || in_declaration)  {
+        in_declaration = 1;
+        if ( op ) {
+            return op->symbol;
+        } else {
+            return 0;
+        }
+    }
+    if (nargs == -2 && in_declaration) {
+        std::cout << "declaration: " ;
+        for( int i = 0; i < nargs; i++ ) {
+           std::cout << (char *) pargs[i] << " ";
+        }
+        std::cout << "\n" ;
+        in_declaration = false;
+        return 0;
+    }
+    if (nargs == -2 && in_formals) {
+        std::cout << "end formals: " ;
+        in_formals = false;
+        return 0;
     }
     if (nargs == 0) {
         if (op && op->symbol) {
             switch(op->tokenid) {
+            case T_FUNCTION:
+                in_formals = true;
+                break;
             case T_END:
                 std::cout << "\n}\n";
                 break;
@@ -538,11 +566,11 @@ main() {
    p.build_parser(std::cin);
    std::cout <<  "parse output:\n";
    res = p.parse(std::cin);
-   std::cout <<  "debug dump:\n";
+   std::cout <<  "\n-----\ndebug dump:\n";
    res->walk(dumper);
-   std::cout <<  "source dump:\n";
+   std::cout <<  "\n-----\nsource dump:\n";
    res->walk(meta_dumper);
-   std::cout <<  "C dump:\n";
+   std::cout <<  "\n-----\nC dump:\n";
    res->walk(c_dumper);
 }
 
