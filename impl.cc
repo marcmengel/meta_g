@@ -42,11 +42,18 @@ public:
        ExprNode *subexp[10]; 
        MultiExprNode() { nsubexp = 0; op = 0; for(int i=0; i< 10; i++){subexp[i]=0;}}
        void *walk( void *(*combiner)(SymbolExprNode *op, char *element, int nargs, void**pargs)) {
+          void *rev;
           void *sres[10];
           void *res;
-          (*combiner)(op, element,  -1,0);
-          for(int i = 0; i < nsubexp; i++) {
-             sres[i] = subexp[i]->walk(combiner);
+          rev = (*combiner)(op, element,  -1,0);
+          if (rev != 0) {
+              for(int i = nsubexp - 1; i >= 0; i--) {
+                 sres[i] = subexp[i]->walk(combiner);
+              }
+          } else {
+              for(int i = 0; i < nsubexp; i++) {
+                 sres[i] = subexp[i]->walk(combiner);
+              }
           }
           res = (*combiner)(op, element, nsubexp, sres);
           (*combiner)(op, element,  -2,0);
@@ -81,7 +88,7 @@ public:
              _token = gettoken(s);
              strcpy(_toktxt, yytext);
              // update the operator in an a parent node if it is not set
-             if (update && !*update) {
+             if ((update && !*update) || (update && *update && (*update)->tokenid == T_NAME )) {
                  #ifdef DEBUG
                     std::cout << "updating operator:"<< res->symbol << "\n";
                  #endif
@@ -464,7 +471,7 @@ dumper(Parser::SymbolExprNode *op, char *element, int nargs, void**pargs) {
 void *
 meta_dumper(Parser::SymbolExprNode *op, char *element, int nargs, void**pargs) {
     if ( op && op->tokenid == -1) {
-        return;
+        return 0;
     }
     if (nargs == 0) {
         if (op && op->symbol) {
@@ -486,38 +493,41 @@ c_dumper(Parser::SymbolExprNode *op, char *element, int nargs, void**pargs) {
     static bool in_formals = false;
 
     if ( nargs == 0 && op && op->tokenid == -1) {
-        return 0;
+        return (void*)0;
     }
     if (nargs == 0 && 0 == strcmp(element,"formal") || in_declaration)  {
         in_declaration = 1;
         if ( op ) {
-            return op->symbol;
+            return (void *)(op->symbol);
         } else {
-            return 0;
+            return (void*)0;
         }
     }
-    if (nargs == -2 && in_declaration) {
-        std::cout << "declaration: " ;
-        for( int i = 0; i < nargs; i++ ) {
-           std::cout << (char *) pargs[i] << " ";
-        }
+    if (nargs == -2 && in_declaration ) {
+        std::cout << " /* declaration: */ " ;
         std::cout << "\n" ;
         in_declaration = false;
-        return 0;
+        return (void*)0;
+    }
+    if (nargs == -1 && op && op->tokenid == ':') {
+        // do declarations the other way around in C...
+        return (void*)1;
     }
     if (nargs == -2 && in_formals) {
-        std::cout << "end formals: " ;
         in_formals = false;
-        return 0;
+        return (void*)0;
     }
     if (nargs == 0) {
         if (op && op->symbol) {
             switch(op->tokenid) {
+            case ':':
+                // C declarations are type name with no separator..
+                break;
             case T_FUNCTION:
                 in_formals = true;
                 break;
             case T_END:
-                std::cout << "\n}\n";
+                std::cout << ";\n}\n";
                 break;
             case T_BEGIN:
                 std::cout << "{\n";
@@ -526,7 +536,7 @@ c_dumper(Parser::SymbolExprNode *op, char *element, int nargs, void**pargs) {
                 std::cout << "if( ";
                 break;
             case T_FI:
-                std::cout << "\n} else { assert(0); }\n";
+                std::cout << ";\n} else { assert(0); }\n";
                 break;
             case T_DO:
                 std::cout << "while(1) if( ";
@@ -535,10 +545,10 @@ c_dumper(Parser::SymbolExprNode *op, char *element, int nargs, void**pargs) {
                 std::cout << ") {\n";
                 break;
             case T_ENDGUARD:
-                std::cout << "\n} else if (";
+                std::cout << ";\n} else if (";
                 break;
             case T_OD:
-                std::cout << "\n} else { break; }\n";
+                std::cout << ";\n} else { break; }\n";
                 break;
             default:
                 std::cout << op->symbol;
@@ -551,11 +561,11 @@ c_dumper(Parser::SymbolExprNode *op, char *element, int nargs, void**pargs) {
             }
         }
     }
-    return 0;
+    return (void*)0;
 }
 
 std::map<const char *, Parser::ParserObj *> Parser::_parser_dict;
-static Parser::SymbolExprNode Parser::EmptyParserObj::empty;
+Parser::SymbolExprNode Parser::EmptyParserObj::empty;
 
 
 #ifdef UNITTEST
