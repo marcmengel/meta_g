@@ -1,0 +1,111 @@
+Define("decl_seq",
+    Or(
+       Seq(Lookup("decl"), Lookup("decl_seq")),
+       Seq(Lookup("func"), Lookup("decl_seq")),
+       Seq(Lookup("classdef"), Lookup("decl_seq")),
+       Empty()));
+
+Define("func",  
+   Seq(Symbol(T_FUNCTION), Symbol(T_NAME),  Lookup("formal_arg_list"), Lookup("spec_type"), Opt(T_PRE, Lookup("predicate")), Opt(T_POST, Lookup("predicate")) , Lookup("block")));
+
+Define("block", 
+    Seq(Symbol(T_BEGIN), Lookup("decl_seq"), Lookup("stmt_seq"), Symbol(T_END)));
+
+Define("decl", Seq(Symbol(T_VAR), Lookup("name_list"), Symbol(':'), Lookup("type"), Symbol(';')));
+
+Define("spec_type", 
+    Seq(Symbol(':') , Lookup("type")));
+
+Define("formal_arg_list", 
+    Opt('(', Lookup("formal_list"), Symbol(')')));
+
+Define("formal_list", 
+    Seq(Lookup("formal"), Opt(',', Lookup("formal_list"))));
+
+Define("formal",  
+    Seq(Symbol(T_NAME), Symbol(':') , Lookup("type")));
+
+Define("type",   
+   Or(
+    Seq(Symbol(T_ARRAY), Symbol('['), Lookup("expression"), Symbol(']'), Lookup("type")),
+    Lookup("classdef"),
+    Symbol(T_NAME)));
+
+Define("classdef", 
+    Seq(Symbol(T_CLASS), Symbol(T_NAME), Opt(Symbol('T_BEGIN'), Lookup("decl_seq"), Symbol('T_END'))));
+
+Define("statement",  
+    Or(
+       Seq( Symbol(T_IF), Lookup("guardlist"), Symbol(T_FI), Lookup("opt_assertion")),
+       Seq( Symbol(T_DO), Lookup("opt_invariant") , Lookup("opt_bound"), Lookup("guardlist"), Symbol(T_OD) , Lookup("opt_assertion")),
+       Lookup("assignment")
+    ));
+
+Define("stmt_seq", Seq( Lookup("stmt"), Lookup("opt_Assertion"), Opt(';', Lookup("stmt"))));
+
+Define("opt_Assertion",  Opt('{', Lookup("predicate"), Symbol('}')));
+
+Define("guardlist",  Seq( Lookup("guard"), Opt(T_ENDGUARD, Lookup("guardlist"))));
+
+Define("guard",  Seq( Lookup("predicate"), Symbol(T_ARROW), Lookup("stmt_seq")));
+
+Define("stmt",
+   Or( 
+       Seq(Symbol(T_IF), Lookup("guardlist"), Symbol(T_FI)),
+       Seq(Symbol(T_DO), Lookup("guardlist"), Symbol(T_OD)),
+       Seq(Lookup("namelist"), Symbol('='), Lookup("predicate_list"))
+   ));
+
+Define("namelist", Seq(Symbol(T_NAME), Opt(',',Lookup("namelist"))));
+
+Define("opt_invariant", Opt(T_INV, Lookup("predicate")) );
+Define("opt_bound", Opt(T_BOUND, Lookup("expression")) );
+
+Define("predicate_list",
+       Seq(Lookup("predicate"), Opt(',',Lookup("predicate_list"))));
+
+Define("predicate",  
+     Seq(Lookup("and_pred"), Or(
+         Seq( Symbol(T_EQUIV), Lookup("predicate")),
+         Seq( Symbol(T_NEQUIV), Lookup("predicate")),
+         Seq( Symbol(T_IMPL), Lookup("predicate")),
+         Seq( Symbol(T_IMPLBY), Lookup("predicate")),
+         Empty())));
+
+Define("and_pred",  Seq(Lookup("or_pred"), Opt(T_LAND, Lookup("and_pred"))));
+
+Define("or_pred",  Seq(Lookup("comp_pred"), Opt(T_LOR, Lookup("or_pred"))));
+
+Define("comp_pred", Seq(Lookup("expression"), Or(
+                       Seq( Symbol(T_EQUAL), Lookup("comp_pred")),
+                       Seq( Symbol(T_NEQ), Lookup("comp_pred")),
+                       Seq( Symbol(T_GEQ), Lookup("comp_pred")),
+                       Seq( Symbol(T_LEQ), Lookup("comp_pred")),
+                       Seq( Symbol('<'), Lookup("comp_pred")),
+                       Seq( Symbol('>'), Lookup("comp_pred")),
+                       Empty())));
+
+Define("expression", Seq(Lookup("term"), Or(
+                       Seq( Symbol('+'), Lookup("expression")),
+                       Seq( Symbol('-'), Lookup("expression")),
+                       Seq( Symbol('|'), Lookup("expression")),
+                       Empty())));
+
+Define("term", Seq(Lookup("primary"), Or(
+                      Seq( Symbol('*'), Lookup("term")),
+                      Seq( Symbol('/'), Lookup("term")),
+                      Seq( Symbol('%'), Lookup("term")),
+                      Seq( Symbol('&'), Lookup("term")),
+                      Empty())));
+
+Define("primary", Or( 
+              Seq( Symbol('-'), Lookup("primary")),
+              Seq( Symbol('!'), Lookup("primary")),
+              Symbol(T_NUMBER),
+              Symbol(T_NUMBER),
+              Seq( Symbol(T_NAME), Or(
+                    Seq( Symbol('['), Lookup("expression"), Symbol(']')),
+                    Seq( Symbol('('), Lookup("predicate_list"), Symbol(')')),
+                    Seq( Symbol('.'), Lookup("primary")),
+                    Empty()))));
+
