@@ -1,0 +1,65 @@
+
+So I'm thinking more and more of having a Lisp-ish data model and internals.
+1) it's lean and fast, if you use the right algorithms
+2) you can use a "pure lisp" model where ref-counting always works
+
+so basic data types:
+  nil        (nil)
+  char       (Atoms 'a...'z etc.))
+  integer    (Long)
+  double     (Float)
+  string     (any of atom/('charlist 'a 'b 'c)/('strcat s1 s2 s3 ...)/array of char )
+  list(x)    (consbox)
+  array(n,x) (Actual array for speed, fixed/max size, i/o buffers...)
+  -----composite types------
+  dict(x->y)  (sorted dictionary / b-tree, also basically vector if you use Integer keys)
+  set(x)     (Dict-> nil)
+  stream     (buffered i/o)
+  regex      (dict((state,char)->(state,ss)),set(final_states))
+  class      (dict(per_inst vars),dict(class vars/methods))
+  functs     (lisp function)
+
+Idea overall: avoid plethora of types plaguing scala/Java/C++ 
+* Everything sortable
+* Everything comparable
+* Everything dumpable (as lisp) 
+
+Only add provably correct constructs i.e. don't add for loops without
+proof template for them, etc.
+
+
+
+Dict example:  a..l mapped to 1..12:
+   (  2 
+      12
+      ( 1 
+        9
+        (0 3 ('a 1) ('b 2) ('c 3)) 
+        'c 
+        (0 3 ('d 4) ('e 5) ('f 6)) 
+        'f 
+        (0 3 ('g 7) ('h 8) ('i 9)) 
+     )
+     'i 
+     (0 3 ('j 10) ('k 11) (l 12))
+   )
+
+ (depth>0 count (subtree1) maxk1 (subtree2) maxk2 (subtree3))
+ (depth=0 count (k1 v1) (k2 v2) (k3 v3))
+
+
+Lispval:
+------------
+            [62 bits| 2]
+Atom/array: [ptr    |11] -> [refcount]|[wordcount]|word1.. wordn]
+Float:      [Float  |01]
+Int         [int    |00]
+Consbox     [ptr    |10] -> [rc][[p1   ][p2  ]
+
+ints:   add:  plain
+        cmp:
+        other: shift right 2 to call operations, back 2 to store/return
+        also for pointer to ext function
+floats: normal, stomp 2 bottom bits to return
+
+-----------
